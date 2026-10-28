@@ -1,0 +1,622 @@
+/* =========================================================
+   MATCHCRAFT CRICKET
+   File: deshboard.css
+   Dashboard UI — Premium Cricket Theme
+   Footer HTML and footer CSS are not modified here.
+========================================================= */
+
+/* ================= DASHBOARD BASE ================= */
+
+.dashboard-content {
+    flex: 1;
+    min-width: 0;
+    padding: 30px;
+    color: #edf5f0;
+    background:
+        radial-gradient(
+            ellipse at top right,
+            rgba(25, 104, 68, 0.17),
+            transparent 42%
+        ),
+        #0b1512;
+    min-height: 100vh;
+}
+
+.dashboard-content[hidden] {
+    display: none !important;
+}
+
+.dashboard-content * {
+    box-sizing: border-box;
+}
+
+.dashboard-content button {
+    font-family: inherit;
+}
+
+/* ================= DASHBOARD HEADER ================= */
+
+.dashboard-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 30px;
+    padding: 5px 0 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.dashboard-eyebrow {
+    margin-bottom: 10px;
+    color: #e9c85b;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.dashboard-header h1 {
+    margin: 0;
+    color: #f6faf7;
+    font-size: clamp(28px, 3vw, 38px);
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: -0.8px;
+    overflow-wrap: anywhere;
+}
+
+.dashboard-subtitle {
+    max-width: 680px;
+    margin-top: 12px;
+    color: #aabbb1;
+    font-size: 15px;
+    line-height: 1.8;
+}
+
+.dashboard-date {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-shrink: 0;
+    padding: 13px 17px;
+    color: #f0d878;
+    background: rgba(231, 193, 64, 0.08);
+    border: 1px solid rgba(231, 193, 64, 0.24);
+    border-radius: 13px;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.dashboard-date i {
+    font-size: 17px;
+}
+
+/* ================= SUMMARY CARDS ================= */
+
+.dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 18px;
+    margin-bottom: 28px;
+}
+
+.stat-card {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    min-width: 0;
+    min-height: 145px;
+    padding: 22px 19px;
+    overflow: hidden;
+    background: linear-gradient(
+        145deg,
+        rgba(27, 46, 37, 0.98),
+        rgba(15, 28, 22, 0.98)
+    );
+    border: 1px solid rgba(255, 255, 255, 0.085);
+    border-radius: 17px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.13);
+    transition:
+        transform 0.25s ease,
+        border-color 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+.stat-card::after {
+    position: absolute;
+    top: -36px;
+    right: -36px;
+    width: 100px;
+    height: 100px;
+    content: "";
+    background: rgba(255, 255, 255, 0.025);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(231, 193, 64, 0.35);
+    box-shadow: 0 13px 28px rgba(0, 0, 0, 0.22);
+}
+
+.stat-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 49px;
+    width: 49px;
+    height: 49px;
+    border-radius: 14px;
+    font-size: 21px;
+}
+
+.stat-purple {
+    color: #c7a6ff;
+    background: rgba(160, 110, 255, 0.14);
+}
+
+.stat-green {
+    color: #69e5a7;
+    background: rgba(67, 211, 137, 0.13);
+}
+
+.stat-blue {
+    color: #79c8ff;
+    background: rgba(69, 167, 255, 0.14);
+}
+
+.stat-orange {
+    color: #ffb76b;
+    background: rgba(255, 151, 61, 0.14);
+}
+
+.stat-card > div:last-child {
+    flex: 1;
+    min-width: 0;
+}
+
+.stat-card p {
+    margin: 2px 0 9px;
+    color: #b8c9bf;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+.stat-card h2 {
+    margin: 0 0 8px;
+    color: #ffffff;
+    font-size: 31px;
+    font-weight: 800;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.stat-card span {
+    display: block;
+    color: #81968a;
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+/* ================= DASHBOARD PANELS ================= */
+
+.dashboard-panel {
+    min-width: 0;
+    margin-bottom: 25px;
+    padding: 25px;
+    background: linear-gradient(
+        145deg,
+        rgba(20, 36, 28, 0.97),
+        rgba(13, 25, 19, 0.97)
+    );
+    border: 1px solid rgba(255, 255, 255, 0.085);
+    border-radius: 19px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.13);
+}
+
+.panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 22px;
+}
+
+.panel-heading h2 {
+    margin: 0;
+    color: #f2f8f4;
+    font-size: 21px;
+    font-weight: 800;
+    line-height: 1.4;
+}
+
+.panel-heading p {
+    margin-top: 7px;
+    color: #94a89b;
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+.panel-tag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 8px 12px;
+    color: #e8d274;
+    background: rgba(231, 193, 64, 0.08);
+    border: 1px solid rgba(231, 193, 64, 0.2);
+    border-radius: 9px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+}
+
+/* ================= QUICK ACTIONS ================= */
+
+.quick-actions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 15px;
+}
+
+.quick-action {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 16px;
+    min-width: 0;
+    min-height: 125px;
+    padding: 20px;
+    color: #edf6f0;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 15px;
+    cursor: pointer;
+    transition:
+        transform 0.25s ease,
+        background-color 0.25s ease,
+        border-color 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+.quick-action i {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    color: #e9cd65;
+    background: rgba(231, 193, 64, 0.1);
+    border-radius: 12px;
+    font-size: 19px;
+}
+
+.quick-action span {
+    color: #dbe7df;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.quick-action:hover {
+    transform: translateY(-3px);
+    background: rgba(231, 193, 64, 0.055);
+    border-color: rgba(231, 193, 64, 0.4);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.15);
+}
+
+.quick-action:hover i {
+    color: #fff0a7;
+    background: rgba(231, 193, 64, 0.18);
+}
+
+.quick-action:focus-visible {
+    outline: 2px solid #e9cd65;
+    outline-offset: 4px;
+}
+
+/* ================= RECENT MATCHES EMPTY STATE ================= */
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 230px;
+    padding: 30px 20px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.018);
+    border: 1px dashed rgba(255, 255, 255, 0.13);
+    border-radius: 15px;
+}
+
+.empty-state > i {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    margin-bottom: 18px;
+    color: #e6c95f;
+    background: rgba(231, 193, 64, 0.09);
+    border-radius: 18px;
+    font-size: 26px;
+}
+
+.empty-state h3 {
+    margin: 0 0 10px;
+    color: #edf6f0;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.empty-state p {
+    max-width: 400px;
+    margin: 0;
+    color: #92a79a;
+    font-size: 13px;
+    line-height: 1.8;
+}
+
+/* ================= BUTTON & KEYBOARD ACCESSIBILITY ================= */
+
+.dashboard-content button:focus-visible {
+    outline: 2px solid #e9cd65;
+    outline-offset: 4px;
+}
+
+/* ================= TABLET ================= */
+
+@media (max-width: 1200px) {
+    .dashboard-content {
+        padding: 24px;
+    }
+
+    .dashboard-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .quick-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .stat-card {
+        min-height: 135px;
+    }
+}
+
+/* ================= SMALL TABLET ================= */
+
+@media (max-width: 768px) {
+    .dashboard-content {
+        min-height: calc(100vh - 65px);
+        padding: 20px 16px;
+    }
+
+    .dashboard-header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 17px;
+        margin-bottom: 23px;
+        padding-bottom: 21px;
+    }
+
+    .dashboard-header h1 {
+        font-size: 29px;
+    }
+
+    .dashboard-subtitle {
+        font-size: 14px;
+    }
+
+    .dashboard-date {
+        padding: 11px 14px;
+    }
+
+    .dashboard-stats {
+        gap: 13px;
+        margin-bottom: 22px;
+    }
+
+    .stat-card {
+        gap: 12px;
+        padding: 17px 14px;
+        border-radius: 15px;
+    }
+
+    .stat-icon {
+        flex-basis: 42px;
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        font-size: 18px;
+    }
+
+    .stat-card h2 {
+        font-size: 27px;
+    }
+
+    .stat-card p {
+        font-size: 12px;
+    }
+
+    .stat-card span {
+        font-size: 10px;
+    }
+
+    .dashboard-panel {
+        padding: 19px 16px;
+        margin-bottom: 20px;
+        border-radius: 16px;
+    }
+
+    .panel-heading h2 {
+        font-size: 19px;
+    }
+
+    .quick-actions {
+        gap: 12px;
+    }
+
+    .quick-action {
+        min-height: 115px;
+        padding: 16px;
+    }
+}
+
+/* ================= SMALL MOBILE ================= */
+
+@media (max-width: 420px) {
+    .dashboard-content {
+        padding: 16px 12px;
+    }
+
+    .dashboard-header h1 {
+        font-size: 26px;
+        letter-spacing: -0.5px;
+    }
+
+    .dashboard-eyebrow {
+        font-size: 10px;
+        letter-spacing: 1.5px;
+    }
+
+    .dashboard-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .stat-card {
+        flex-direction: column;
+        gap: 12px;
+        min-height: 150px;
+        padding: 15px 13px;
+    }
+
+    .stat-card h2 {
+        font-size: 26px;
+    }
+
+    .stat-card p {
+        font-size: 12px;
+    }
+
+    .stat-card span {
+        font-size: 10px;
+    }
+
+    .dashboard-panel {
+        padding: 17px 13px;
+    }
+
+    .panel-heading {
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .panel-heading h2 {
+        font-size: 17px;
+    }
+
+    .panel-heading p {
+        font-size: 12px;
+    }
+
+    .panel-tag {
+        padding: 7px 8px;
+        font-size: 9px;
+    }
+
+    .quick-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .quick-action {
+        gap: 12px;
+        min-height: 110px;
+        padding: 13px;
+    }
+
+    .quick-action i {
+        width: 38px;
+        height: 38px;
+        font-size: 17px;
+    }
+
+    .quick-action span {
+        font-size: 12px;
+    }
+
+    .empty-state {
+        min-height: 200px;
+        padding: 23px 14px;
+    }
+}
+
+/* ================= REDUCED MOTION ================= */
+
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-content *,
+    .dashboard-content *::before,
+    .dashboard-content *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+    }
+}
+
+
+/* ==================================================
+   MATCHCRAFT CRICKET
+   Dashboard Background Transparency Fix
+   Cards and Header remain unchanged
+================================================== */
+
+/* Dashboard-এর নিচের মূল কনটেন্ট */
+#dashboard .dashboard-stats,
+#dashboard .dashboard-panel {
+    background-color: transparent;
+}
+
+/* কনটেন্টের মাঝের অপ্রয়োজনীয় কালো স্তর সরানো */
+#dashboard .dashboard-content,
+#dashboard.dashboard-content {
+    background-color: transparent;
+}
+
+/* ==========================================
+   MATCHCRAFT CRICKET
+   Dashboard Cards - Light Glass Effect
+   শুধু কার্ডের ব্যাকগ্রাউন্ড পরিবর্তন
+========================================== */
+
+/* Total Tournaments, Teams, Players, Matches */
+#dashboard .stat-card {
+    background-color: rgba(255, 255, 255, 0.10);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+
+/* Quick Actions এবং Recent Matches */
+#dashboard .dashboard-panel {
+    background-color: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+
+/* Quick Action-এর ভেতরের আলাদা কার্ড */
+#dashboard .quick-action {
+    background-color: rgba(255, 255, 255, 0.10);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}

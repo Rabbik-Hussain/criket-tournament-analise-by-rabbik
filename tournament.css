@@ -1,0 +1,515 @@
+/* =====================================================
+   MATCHCRAFT CRICKET
+   File: tournaments.css
+   Tournament Type Cards & Tournament Form
+===================================================== */
+
+.tournaments-app {
+    --tc-text: #f4f7ff;
+    --tc-muted: #aebbd0;
+    --tc-border: rgba(255, 255, 255, 0.14);
+    --tc-glass: rgba(17, 27, 45, 0.70);
+    color: var(--tc-text);
+    width: 100%;
+    padding: 12px 0 28px;
+    box-sizing: border-box;
+}
+
+.tournaments-app *,
+.tournaments-app *::before,
+.tournaments-app *::after {
+    box-sizing: border-box;
+}
+
+.tournaments-app [hidden] {
+    display: none !important;
+}
+
+.tournaments-app .tc-heading {
+    margin-bottom: 24px;
+}
+
+.tournaments-app .tc-eyebrow {
+    color: #60d9ff;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin: 0 0 8px;
+}
+
+.tournaments-app .tc-title {
+    color: #fff;
+    font-size: clamp(25px, 4vw, 36px);
+    font-weight: 800;
+    line-height: 1.25;
+    margin: 0 0 10px;
+}
+
+.tournaments-app .tc-description {
+    color: var(--tc-muted);
+    font-size: 14px;
+    line-height: 1.8;
+    margin: 0;
+    max-width: 760px;
+}
+
+.tournaments-app .tc-section-title {
+    font-size: 19px;
+    font-weight: 800;
+    color: #fff;
+    margin: 0 0 15px;
+}
+
+.tournaments-app .tc-type-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 30px;
+}
+
+.tournaments-app .tc-type-card {
+    --tc-accent: #48d8ff;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+    min-height: 190px;
+    padding: 20px;
+    text-align: left;
+    color: #fff;
+    cursor: pointer;
+    border: 1px solid var(--tc-border);
+    border-radius: 17px;
+    background: rgba(14, 24, 42, 0.43);
+    transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease,
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+    font: inherit;
+}
+
+.tournaments-app .tc-type-card:hover {
+    border-color: var(--tc-accent);
+    background: rgba(20, 35, 57, 0.60);
+    transform: translateY(-3px);
+}
+
+.tournaments-app .tc-type-card:focus-visible {
+    outline: 2px solid var(--tc-accent);
+    outline-offset: 3px;
+}
+
+.tournaments-app .tc-type-card.is-selected {
+    border: 2px solid var(--tc-accent);
+    background: rgba(24, 42, 67, 0.65);
+    box-shadow: 0 0 0 2px rgba(72, 216, 255, 0.08);
+}
+
+.tournaments-app .tc-type-card[data-type="franchise"] {
+    --tc-accent: #ffc857;
+}
+
+.tournaments-app .tc-type-card[data-type="t20"] {
+    --tc-accent: #44e5bd;
+}
+
+.tournaments-app .tc-type-card[data-type="odi"] {
+    --tc-accent: #62a7ff;
+}
+
+.tournaments-app .tc-type-card[data-type="test"] {
+    --tc-accent: #ff8e91;
+}
+
+.tournaments-app .tc-type-card[data-type="custom"] {
+    --tc-accent: #c6a0ff;
+}
+
+.tournaments-app .tc-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 10px;
+    margin-bottom: 17px;
+}
+
+.tournaments-app .tc-card-icon {
+    display: grid;
+    place-items: center;
+    width: 49px;
+    height: 49px;
+    flex-shrink: 0;
+    border-radius: 14px;
+    color: var(--tc-accent);
+    background: rgba(255, 255, 255, 0.07);
+    font-size: 23px;
+}
+
+.tournaments-app .tc-card-tag {
+    color: var(--tc-accent);
+    border: 1px solid currentColor;
+    border-radius: 30px;
+    padding: 5px 9px;
+    font-size: 10px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.tournaments-app .tc-card-title {
+    color: #fff;
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1.4;
+    margin: 0 0 8px;
+}
+
+.tournaments-app .tc-card-description {
+    color: #c1ccdc;
+    font-size: 12px;
+    line-height: 1.75;
+    margin: 0;
+}
+
+.tournaments-app .tc-card-action {
+    color: var(--tc-accent);
+    font-size: 12px;
+    font-weight: 800;
+    margin-top: auto;
+    padding-top: 17px;
+}
+
+.tournaments-app .tc-panel {
+    border: 1px solid var(--tc-border);
+    border-radius: 17px;
+    padding: 22px;
+    margin-bottom: 25px;
+    background: var(--tc-glass);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+}
+
+.tournaments-app .tc-panel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 15px;
+    margin-bottom: 22px;
+}
+
+.tournaments-app .tc-panel-title {
+    color: #fff;
+    font-size: 21px;
+    font-weight: 800;
+    margin: 0 0 7px;
+}
+
+.tournaments-app .tc-panel-subtitle {
+    color: var(--tc-muted);
+    font-size: 13px;
+    line-height: 1.7;
+    margin: 0;
+}
+
+.tournaments-app .tc-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 17px;
+}
+
+.tournaments-app .tc-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.tournaments-app .tc-field.full-width {
+    grid-column: 1 / -1;
+}
+
+.tournaments-app .tc-field label {
+    color: #e8eef9;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.tournaments-app .tc-field input,
+.tournaments-app .tc-field select,
+.tournaments-app .tc-field textarea {
+    width: 100%;
+    min-height: 45px;
+    padding: 11px 13px;
+    color: #fff;
+    background: rgba(3, 10, 22, 0.50);
+    border: 1px solid rgba(255, 255, 255, 0.17);
+    border-radius: 10px;
+    outline: none;
+    font: inherit;
+    font-size: 13px;
+}
+
+.tournaments-app .tc-field textarea {
+    min-height: 95px;
+    resize: vertical;
+}
+
+.tournaments-app .tc-field input:focus,
+.tournaments-app .tc-field select:focus,
+.tournaments-app .tc-field textarea:focus {
+    border-color: #55d7ff;
+    box-shadow: 0 0 0 3px rgba(85, 215, 255, 0.10);
+}
+
+.tournaments-app .tc-field input::placeholder,
+.tournaments-app .tc-field textarea::placeholder {
+    color: #8795aa;
+}
+
+.tournaments-app .tc-field select option {
+    color: #fff;
+    background: #172338;
+}
+
+.tournaments-app .tc-help {
+    color: #9eacc1;
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+.tournaments-app .tc-divider {
+    height: 1px;
+    background: var(--tc-border);
+    margin: 23px 0;
+}
+
+.tournaments-app .tc-subheading {
+    color: #fff;
+    font-size: 15px;
+    font-weight: 800;
+    margin: 0 0 16px;
+}
+
+.tournaments-app .tc-checkbox-field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 45px;
+    color: #e8eef9;
+    font-size: 13px;
+}
+
+.tournaments-app .tc-checkbox-field input {
+    width: 17px;
+    height: 17px;
+    accent-color: #48d8ff;
+}
+
+.tournaments-app .tc-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 23px;
+}
+
+.tournaments-app .tc-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 43px;
+    padding: 11px 17px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.tournaments-app .tc-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.tournaments-app .tc-btn-primary {
+    color: #071523;
+    background: linear-gradient(135deg, #64e3ff, #5ce3b7);
+}
+
+.tournaments-app .tc-btn-secondary {
+    color: #eef4ff;
+    background: rgba(255, 255, 255, 0.07);
+    border-color: var(--tc-border);
+}
+
+.tournaments-app .tc-btn-danger {
+    color: #ffb7bc;
+    background: rgba(255, 85, 100, 0.10);
+    border-color: rgba(255, 85, 100, 0.25);
+}
+
+.tournaments-app .tc-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.tournaments-app .tc-count {
+    color: #dce8f8;
+    font-size: 12px;
+    padding: 7px 11px;
+    border: 1px solid var(--tc-border);
+    border-radius: 30px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tournaments-app .tc-tournament-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.tournaments-app .tc-tournament-item {
+    min-width: 0;
+    padding: 17px;
+    border: 1px solid var(--tc-border);
+    border-radius: 13px;
+    background: rgba(10, 20, 35, 0.48);
+}
+
+.tournaments-app .tc-item-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.tournaments-app .tc-item-title {
+    color: #fff;
+    font-size: 16px;
+    font-weight: 800;
+    overflow-wrap: anywhere;
+    margin: 0 0 7px;
+}
+
+.tournaments-app .tc-item-meta {
+    color: var(--tc-muted);
+    font-size: 12px;
+    line-height: 1.8;
+}
+
+.tournaments-app .tc-status {
+    display: inline-block;
+    padding: 5px 9px;
+    color: #9cebd4;
+    background: rgba(60, 215, 164, 0.10);
+    border: 1px solid rgba(60, 215, 164, 0.20);
+    border-radius: 30px;
+    font-size: 10px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.tournaments-app .tc-status[data-status="Completed"] {
+    color: #9bc5ff;
+    background: rgba(80, 150, 255, 0.10);
+}
+
+.tournaments-app .tc-status[data-status="Cancelled"] {
+    color: #ffb7bc;
+    background: rgba(255, 85, 100, 0.10);
+}
+
+.tournaments-app .tc-empty {
+    padding: 28px 16px;
+    text-align: center;
+    color: var(--tc-muted);
+    border: 1px dashed rgba(255, 255, 255, 0.18);
+    border-radius: 13px;
+    line-height: 1.8;
+    font-size: 13px;
+    grid-column: 1 / -1;
+}
+
+.tournaments-app .tc-notice {
+    margin: 0 0 18px;
+    padding: 12px 14px;
+    border: 1px solid rgba(84, 216, 255, 0.25);
+    border-radius: 10px;
+    color: #c4f1ff;
+    background: rgba(84, 216, 255, 0.08);
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+.tournaments-app .tc-message {
+    margin-top: 15px;
+    color: #a5f1d6;
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+.tournaments-app .tc-message.error {
+    color: #ffb7bc;
+}
+
+@media (max-width: 900px) {
+    .tournaments-app .tc-type-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 560px) {
+    .tournaments-app {
+        padding-top: 8px;
+    }
+
+    .tournaments-app .tc-type-grid,
+    .tournaments-app .tc-form-grid,
+    .tournaments-app .tc-tournament-list {
+        grid-template-columns: 1fr;
+    }
+
+    .tournaments-app .tc-type-card {
+        min-height: 160px;
+        padding: 17px;
+    }
+
+    .tournaments-app .tc-panel {
+        padding: 16px;
+    }
+
+    .tournaments-app .tc-panel-header {
+        flex-direction: column;
+    }
+
+    .tournaments-app .tc-field.full-width {
+        grid-column: auto;
+    }
+
+    .tournaments-app .tc-actions {
+        align-items: stretch;
+    }
+
+    .tournaments-app .tc-actions .tc-btn {
+        flex: 1 1 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tournaments-app *,
+    .tournaments-app *::before,
+    .tournaments-app *::after {
+        transition: none !important;
+    }
+}
