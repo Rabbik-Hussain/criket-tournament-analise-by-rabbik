@@ -11,17 +11,18 @@
        1. DOM ELEMENTS
     ----------------------------------------------------- */
 
-    const pageSections = [
-        "dashboard",
-        "tournaments",
-        "teams",
-        "players",
-        "matches",
-        "fixtures",
-        "standings",
-        "statistics",
-        "help"
-    ];
+   const pageSections = [
+    "dashboard",
+    "tournaments",
+    "teams",
+    "players",
+    "matches",
+    "features",
+    "fixtures",
+    "standings",
+    "statistics",
+    "help"
+];
 
     const sidebarLinks = document.querySelectorAll(
         ".sidebar_menu .menu a[data-page]"
@@ -45,17 +46,18 @@
        2. PAGE TITLES
     ----------------------------------------------------- */
 
-    const pageTitles = {
-        dashboard: "Dashboard",
-        tournaments: "Tournaments & Seasons",
-        teams: "Teams & Squads",
-        players: "Players & Roles",
-        matches: "Matches & Live Score",
-        fixtures: "Fixtures & Results",
-        standings: "Standings & Playoffs",
-        statistics: "Statistics & Awards",
-        help: "About & Help"
-    };
+   const pageTitles = {
+    dashboard: "Dashboard",
+    tournaments: "Tournaments & Seasons",
+    teams: "Teams & Squads",
+    players: "Players & Roles",
+    matches: "Matches & Live Score",
+    features: "Features",
+    fixtures: "Fixtures & Results",
+    standings: "Standings & Playoffs",
+    statistics: "Statistics & Awards",
+    help: "About & Help"
+};
 
     /* -----------------------------------------------------
        3. SAFE LOCALSTORAGE HELPERS

@@ -16,11 +16,11 @@
     <link rel="stylesheet" href="tournament.css">
     <link rel="stylesheet" href="team.css">
     <link rel="stylesheet" href="player.css">
-    <link rel="stylesheet" href=".css">
-    <link rel="stylesheet" href=".css">
-    <link rel="stylesheet" href=".css">
-    <link rel="stylesheet" href=".css">
-    <link rel="stylesheet" href=".css">
+    <link rel="stylesheet" href="statistics.css">
+    <link rel="stylesheet" href="match.css">
+    <link rel="stylesheet" href="features.css">
+    <link rel="stylesheet" href="awards.css">
+    
    
 
     <!-- Font Awesome Icons -->
@@ -101,12 +101,12 @@
                     </li>
 
                     <li>
-                        <a href="#" data-page="fixtures">
-                            <i class="fa-solid fa-calendar-days"></i>
-                            <span>Fixtures &amp; Results</span>
+                        <a href="#" data-page="features">
+                            <i class="fa-solid fa-calendar-check"></i>
+                            <span>Features</span>
                         </a>
                     </li>
-
+                    
                     <li>
                         <a href="#" data-page="standings">
                             <i class="fa-solid fa-list-ol"></i>
@@ -614,249 +614,15 @@
             <!-- Cricket live scoring interface will be added in the match.js stage. -->
         </section>
 
-        <!-- =========================================
-             FIXTURES & RESULTS
-        ========================================== -->
-        <section id="fixtures" hidden>
 
-            <div class="fixtures-container">
 
-                <header class="fixtures-header">
-                    <div class="fixtures-heading">
-                        <p class="fixtures-eyebrow">MATCHCRAFT CRICKET / FIXTURES</p>
-                        <h1 class="fixtures-title">Fixtures &amp; Results</h1>
-                        <p class="fixtures-subtitle">
-                            Manage cricket grounds, schedule matches and view results.
-                        </p>
-                    </div>
+       <!-- =========================================
+     FEATURES — MATCH PAIRING & SCHEDULE
+========================================== -->
+<section id="features" class="features-content" hidden>
+    <!-- Features page UI will be created in features.js -->
+</section>
 
-                    <div class="fixtures-header-icon">
-                        <i class="fa-solid fa-calendar-days"></i>
-                    </div>
-                </header>
-
-                <div class="fixtures-stats">
-
-                    <div class="fixtures-stat-card">
-                        <div class="fixtures-stat-icon">
-                            <i class="fa-solid fa-calendar-check"></i>
-                        </div>
-                        <div>
-                            <p class="fixtures-stat-label">Total Matches</p>
-                            <p class="fixtures-stat-value" id="fixturesTotalMatches">0</p>
-                        </div>
-                    </div>
-
-                    <div class="fixtures-stat-card">
-                        <div class="fixtures-stat-icon">
-                            <i class="fa-solid fa-clock"></i>
-                        </div>
-                        <div>
-                            <p class="fixtures-stat-label">Upcoming Matches</p>
-                            <p class="fixtures-stat-value" id="fixturesUpcomingMatches">0</p>
-                        </div>
-                    </div>
-
-                    <div class="fixtures-stat-card">
-                        <div class="fixtures-stat-icon">
-                            <i class="fa-solid fa-stadium"></i>
-                        </div>
-                        <div>
-                            <p class="fixtures-stat-label">Available Grounds</p>
-                            <p class="fixtures-stat-value" id="fixturesTotalGrounds">0</p>
-                        </div>
-                    </div>
-
-                </div>
-
-                <!-- Ground Management -->
-                <div class="fixtures-section">
-
-                    <div class="fixtures-section-header">
-                        <div>
-                            <h2 class="fixtures-section-title">
-                                <i class="fa-solid fa-map-location-dot"></i>
-                                Ground &amp; Venue Management
-                            </h2>
-                            <p class="fixtures-section-description">
-                                Add and manage your own cricket grounds and venues.
-                            </p>
-                        </div>
-
-                        <button type="button"
-                            class="fixtures-btn fixtures-btn--primary"
-                            id="fixturesAddGroundBtn">
-                            <i class="fa-solid fa-plus"></i>
-                            Add Ground
-                        </button>
-                    </div>
-
-                    <div class="fixtures-ground-grid" id="fixturesGroundGrid"></div>
-                </div>
-
-                <!-- Schedule Match -->
-                <div class="fixtures-section" id="fixturesScheduleSection">
-
-                    <div class="fixtures-section-header">
-                        <div>
-                            <h2 class="fixtures-section-title">
-                                <i class="fa-solid fa-calendar-plus"></i>
-                                Schedule a Match
-                            </h2>
-                            <p class="fixtures-section-description">
-                                Select a tournament, two teams, venue, date and start time.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div class="fixtures-panel">
-                        <form id="fixturesMatchForm">
-
-                            <input type="hidden" id="fixturesEditingMatchId" value="">
-
-                            <div class="fixtures-form-grid">
-
-                                <div class="fixtures-field">
-                                    <label class="fixtures-label" for="fixturesTournament">
-                                        Tournament <span class="fixtures-required">*</span>
-                                    </label>
-                                    <select class="fixtures-select" id="fixturesTournament" required>
-                                        <option value="">Select Tournament</option>
-                                    </select>
-                                </div>
-
-                                <div class="fixtures-field">
-                                    <label class="fixtures-label" for="fixturesMatchVenue">
-                                        Ground / Venue <span class="fixtures-required">*</span>
-                                    </label>
-                                    <select class="fixtures-select" id="fixturesMatchVenue" required>
-                                        <option value="">Select Ground</option>
-                                    </select>
-                                </div>
-
-                                <div class="fixtures-field">
-                                    <label class="fixtures-label" for="fixturesHomeTeam">
-                                        Team A <span class="fixtures-required">*</span>
-                                    </label>
-                                    <select class="fixtures-select" id="fixturesHomeTeam" required>
-                                        <option value="">Select Team A</option>
-                                    </select>
-                                </div>
-
-                                <div class="fixtures-field">
-                                    <label class="fixtures-label" for="fixturesAwayTeam">
-                                        Team B <span class="fixtures-required">*</span>
-                                    </label>
-                                    <select class="fixtures-select" id="fixturesAwayTeam" required>
-                                        <option value="">Select Team B</option>
-                                    </select>
-                                </div>
-
-                                <div class="fixtures-field">
-                                    <label class="fixtures-label" for="fixturesMatchDate">
-                                        Match Date <span class="fixtures-required">*</span>
-                                    </label>
-                                    <input class="fixtures-input" type="date"
-                                        id="fixturesMatchDate" required>
-                                </div>
-
-                                <div class="fixtures-field">
-                                    <label class="fixtures-label" for="fixturesMatchTime">
-                                        Start Time <span class="fixtures-required">*</span>
-                                    </label>
-                                    <input class="fixtures-input" type="time"
-                                        id="fixturesMatchTime" required>
-                                </div>
-
-                                <div class="fixtures-field fixtures-field--full">
-                                    <label class="fixtures-label" for="fixturesMatchNotes">
-                                        Match Notes (Optional)
-                                    </label>
-                                    <textarea class="fixtures-textarea"
-                                        id="fixturesMatchNotes"
-                                        placeholder="Enter match conditions or additional information..."></textarea>
-                                </div>
-
-                            </div>
-
-                            <div class="fixtures-form-actions">
-                                <button type="submit"
-                                    class="fixtures-btn fixtures-btn--primary"
-                                    id="fixturesSaveMatchBtn">
-                                    <i class="fa-solid fa-calendar-check"></i>
-                                    Schedule Match
-                                </button>
-
-                                <button type="button"
-                                    class="fixtures-btn fixtures-btn--secondary"
-                                    id="fixturesCancelEditBtn" hidden>
-                                    Cancel Edit
-                                </button>
-
-                                <button type="reset"
-                                    class="fixtures-btn fixtures-btn--secondary"
-                                    id="fixturesResetMatchBtn">
-                                    <i class="fa-solid fa-rotate-left"></i>
-                                    Reset Form
-                                </button>
-                            </div>
-
-                        </form>
-                    </div>
-                </div>
-
-                <!-- Match List -->
-                <div class="fixtures-section">
-
-                    <div class="fixtures-section-header">
-                        <div>
-                            <h2 class="fixtures-section-title">
-                                <i class="fa-solid fa-list-check"></i>
-                                Fixtures &amp; Results
-                            </h2>
-                            <p class="fixtures-section-description">
-                                View, edit and manage your scheduled cricket matches.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div class="fixtures-panel">
-
-                        <div class="fixtures-toolbar">
-                            <div class="fixtures-toolbar-controls">
-                                <input type="search"
-                                    class="fixtures-input fixtures-search"
-                                    id="fixturesMatchSearch"
-                                    placeholder="Search teams, tournament or ground...">
-
-                                <select class="fixtures-select fixtures-filter"
-                                    id="fixturesMatchStatusFilter">
-                                    <option value="all">All Matches</option>
-                                    <option value="upcoming">Upcoming</option>
-                                    <option value="live">Live</option>
-                                    <option value="completed">Completed</option>
-                                    <option value="cancelled">Cancelled</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="fixtures-match-list" id="fixturesMatchList"></div>
-
-                        <div class="fixtures-empty" id="fixturesMatchesEmpty" hidden>
-                            <div class="fixtures-empty-icon">
-                                <i class="fa-solid fa-calendar-xmark"></i>
-                            </div>
-                            <h3 class="fixtures-empty-title">No Matches Found</h3>
-                            <p class="fixtures-empty-text">
-                                Schedule your first match using the form above.
-                            </p>
-                        </div>
-
-                    </div>
-                </div>
-
-            </div>
-        </section>
 
         <!-- =========================================
              STANDINGS & PLAYOFFS
@@ -953,12 +719,12 @@
     <script src="desboard.js"></script>
     <script src="tournament.js"></script>
     <script src="team.js"></script>
-    <script src="player.js"></script>
-    <script src=".js"></script>
-    <script src=".js"></script>
-    <script src=".js"></script>
-    <script src=".js"></script>
-    <script src=".js"></script>
+    <script src="player.js"></script> 
+    <script src="statistics.js"></script>
+    <script src="match.js"></script>
+    <script src="features.js"></script>
+    <script src="awards.js"></script>
+    
     
 
 </body>

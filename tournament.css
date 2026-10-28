@@ -513,3 +513,38 @@
         transition: none !important;
     }
 }
+
+/* =====================================================
+   MATCHCRAFT CRICKET
+   Custom Tournament Format & Group Settings
+===================================================== */
+
+.tournaments-app .tc-tournament-structure {
+    grid-column: 1 / -1;
+    padding: 16px;
+    border: 1px solid rgba(198, 160, 255, 0.28);
+    border-radius: 12px;
+    background: rgba(198, 160, 255, 0.06);
+}
+
+.tournaments-app .tc-tournament-structure-title {
+    color: #d9c4ff;
+    font-size: 14px;
+    font-weight: 800;
+    margin: 0 0 14px;
+}
+
+.tournaments-app .tc-group-count-field {
+    margin-top: 14px;
+}
+
+.tournaments-app .tc-group-count-field[hidden] {
+    display: none !important;
+}
+
+@media (max-width: 560px) {
+    .tournaments-app .tc-tournament-structure {
+        grid-column: auto;
+        padding: 13px;
+    }
+}
