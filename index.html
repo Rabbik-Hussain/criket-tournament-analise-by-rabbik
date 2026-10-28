@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="theme-color" content="#101827">
+    <meta name="description" content="MATCHCRAFT CRICKET — Custom Cricket Tournament and Live Scoring Manager.">
+
+    <title>MATCHCRAFT CRICKET | Tournament Manager</title>
+
+    <!-- CSS: Separate page styles -->
+    <link rel="stylesheet" href="sidebar.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="teams.css">
+    <link rel="stylesheet" href="players.css">
+    <link rel="stylesheet" href="fixtures.css">
+    <link rel="stylesheet" href="match.css">
+    <link rel="stylesheet" href="bracat.css">
+    <link rel="stylesheet" href="status.css">
+    <link rel="stylesheet" href="help.css">
+
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+</head>
+
+<body>
+    <div class="main-box">
+
+        <!-- Mobile Header -->
+        <div class="mobile-header">
+            <label for="check" class="mobile-menu-btn" aria-label="Open navigation">
+                <i class="fas fa-bars"></i>
+            </label>
+            <span class="mobile-page-title">Dashboard</span>
+        </div>
+
+        <!-- Sidebar Toggle -->
+        <input type="checkbox" id="check">
+
+        <div class="btn_one">
+            <label for="check" aria-label="Open sidebar">
+                <i class="fas fa-bars"></i>
+            </label>
+        </div>
+
+        <!-- =========================================
+             MATCHCRAFT CRICKET SIDEBAR
+        ========================================== -->
+        <aside class="sidebar_menu">
+
+            <div class="logo">
+                <a href="#" data-page="dashboard">MATCHCRAFT <span>CRICKET</span></a>
+            </div>
+
+            <div class="btn_two">
+                <label for="check" aria-label="Close sidebar">
+                    <i class="fas fa-times"></i>
+                </label>
+            </div>
+
+            <nav class="menu" aria-label="Main navigation">
+                <ul>
+                    <li>
+                        <a href="#" data-page="dashboard" aria-current="page">
+                            <i class="fa-solid fa-house"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="#" data-page="tournaments">
+                            <i class="fa-solid fa-trophy"></i>
+                            <span>Tournaments &amp; Seasons</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="#" data-page="teams">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            <span>Teams &amp; Squads</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="#" data-page="players">
+                            <i class="fa-solid fa-users"></i>
+                            <span>Players &amp; Roles</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="#" data-page="matches">
+                            <i class="fa-solid fa-baseball-bat-ball"></i>
+                            <span>Matches &amp; Live Score</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="#" data-page="fixtures">
+                            <i class="fa-solid fa-calendar-days"></i>
+                            <span>Fixtures &amp; Results</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="#" data-page="standings">
+                            <i class="fa-solid fa-list-ol"></i>
+                            <span>Standings &amp; Playoffs</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="#" data-page="statistics">
+                            <i class="fa-solid fa-chart-column"></i>
+                            <span>Statistics &amp; Awards</span>
+                        </a>
+                    </li>
+
+                    <!-- Keep About & Help for the final stage -->
+                    <li class="help-sidebar-item">
+                        <a href="#" data-page="help" aria-label="About and Help">
+                            <i class="fa-solid fa-circle-question"></i>
+                            <span>About &amp; Help</span>
+                            <i class="fas fa-chevron-right help-sidebar-arrow"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="social_media">
+                <a href="#" aria-label="Facebook"><i class="fab fa-facebook"></i></a>
+                <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+                <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+                <a href="#" aria-label="YouTube"><i class="fab fa-youtube"></i></a>
+            </div>
+
+        </aside>
+
+        <!-- =========================================
+             DASHBOARD
+        ========================================== -->
+        <main class="dashboard-content" id="dashboard">
+
+            <header class="dashboard-header">
+                <div>
+                    <p class="dashboard-eyebrow">WELCOME TO MATCHCRAFT CRICKET</p>
+                    <h1>Cricket Dashboard</h1>
+                    <p class="dashboard-subtitle">
+                        Create custom tournaments, manage teams and players, and score matches.
+                    </p>
+                </div>
+
+                <div class="dashboard-date">
+                    <i class="fas fa-calendar-days"></i>
+                    <span>Tournament Overview</span>
+                </div>
+            </header>
+
+            <section class="dashboard-stats">
+                <article class="stat-card">
+                    <div class="stat-icon stat-purple">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <div>
+                        <p>Total Tournaments</p>
+                        <h2 id="totalTournaments">00</h2>
+                        <span>All competitions</span>
+                    </div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-icon stat-green">
+                        <i class="fas fa-shield-halved"></i>
+                    </div>
+                    <div>
+                        <p>Total Teams</p>
+                        <h2 id="totalTeams">00</h2>
+                        <span>Registered teams</span>
+                    </div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-icon stat-blue">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div>
+                        <p>Total Players</p>
+                        <h2 id="totalPlayers">00</h2>
+                        <span>Registered players</span>
+                    </div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-icon stat-orange">
+                        <i class="fa-solid fa-baseball-bat-ball"></i>
+                    </div>
+                    <div>
+                        <p>Total Matches</p>
+                        <h2 id="totalMatches">00</h2>
+                        <span>All scheduled matches</span>
+                    </div>
+                </article>
+            </section>
+
+            <!-- Dashboard Quick Actions -->
+            <section class="dashboard-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Quick Actions</h2>
+                        <p>Quick access to your cricket management tools.</p>
+                    </div>
+                </div>
+
+                <div class="quick-actions">
+                    <button type="button" class="quick-action" data-page="tournaments">
+                        <i class="fas fa-plus-circle"></i>
+                        <span>Create Tournament</span>
+                    </button>
+
+                    <button type="button" class="quick-action" data-page="teams">
+                        <i class="fas fa-shield-halved"></i>
+                        <span>Add Team</span>
+                    </button>
+
+                    <button type="button" class="quick-action" data-page="players">
+                        <i class="fas fa-user-plus"></i>
+                        <span>Add Player</span>
+                    </button>
+
+                    <button type="button" class="quick-action" data-page="matches">
+                        <i class="fas fa-calendar-plus"></i>
+                        <span>Start / Score Match</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Recent Matches -->
+            <section class="dashboard-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Recent Matches</h2>
+                        <p>Your latest cricket match results will appear here.</p>
+                    </div>
+                    <span class="panel-tag">MATCH CENTER</span>
+                </div>
+
+                <div class="empty-state">
+                    <i class="fa-solid fa-baseball-bat-ball"></i>
+                    <h3>No Matches Yet</h3>
+                    <p>Create a tournament and schedule your first match.</p>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- =========================================
+             TOURNAMENTS & SEASONS
+        ========================================== -->
+        <section class="tournaments-content" id="tournaments" hidden>
+
+            <header class="tournaments-header">
+                <div>
+                    <p class="dashboard-eyebrow">CRICKET MANAGEMENT</p>
+                    <h1>Tournaments &amp; Seasons</h1>
+                    <p class="dashboard-subtitle">
+                        Create a tournament with your own format and rules.
+                    </p>
+                </div>
+
+                <button type="button" id="showTournamentForm" class="tournament-add-btn">
+                    <i class="fas fa-plus"></i>
+                    Create Tournament
+                </button>
+            </header>
+
+            <section class="tournament-form-panel" id="tournamentFormPanel" hidden>
+                <h2>Create New Tournament</h2>
+
+                <form id="tournamentForm">
+                    <div class="tournament-form-grid">
+
+                        <label>
+                            Tournament Name
+                            <input type="text" id="tournamentName"
+                                placeholder="Enter tournament name" required>
+                        </label>
+
+                        <label>
+                            Tournament Format
+                            <select id="tournamentType" required>
+                                <option value="">Select a format or create your own</option>
+                                <option value="T20">T20</option>
+                                <option value="ODI">ODI / One Day</option>
+                                <option value="Test">Test Cricket</option>
+                                <option value="League">League</option>
+                                <option value="Round Robin">Round Robin</option>
+                                <option value="Group Stage">Group Stage</option>
+                                <option value="Knockout">Knockout</option>
+                                <option value="League & Knockout">League &amp; Knockout</option>
+                                <option value="Custom">Custom Format</option>
+                            </select>
+                        </label>
+
+                        <label>
+                            Number of Teams
+                            <input type="number" id="tournamentTotalTeams"
+                                min="1" step="1" placeholder="Enter team count" required>
+                        </label>
+
+                        <label id="tournamentGroupsField" hidden>
+                            Number of Groups
+                            <input type="number" id="tournamentGroupCount"
+                                min="1" step="1" placeholder="Enter group count">
+                        </label>
+
+                        <label>
+                            Season / Edition
+                            <input type="text" id="tournamentSeason"
+                                placeholder="e.g. 2026" required>
+                        </label>
+
+                        <label>
+                            Start Date
+                            <input type="date" id="tournamentStartDate" required>
+                        </label>
+
+                        <label>
+                            End Date
+                            <input type="date" id="tournamentEndDate" required>
+                        </label>
+
+                        <label>
+                            Tournament Status
+                            <select id="tournamentStatus" required>
+                                <option value="Upcoming">Upcoming</option>
+                                <option value="Ongoing">Ongoing</option>
+                                <option value="Completed">Completed</option>
+                            </select>
+                        </label>
+
+                    </div>
+
+                    <div class="tournament-form-actions">
+                        <button type="submit" class="tournament-save-btn">
+                            Save Tournament
+                        </button>
+                        <button type="button" id="cancelTournamentForm"
+                            class="tournament-cancel-btn">
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="tournament-list-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h2>All Tournaments</h2>
+                        <p>Your saved competitions will appear here.</p>
+                    </div>
+                    <span id="tournamentCount" class="panel-tag">0 TOURNAMENTS</span>
+                </div>
+
+                <div id="tournamentList" class="tournament-list">
+                    <div class="tournament-empty-state">
+                        <i class="fas fa-trophy"></i>
+                        <h3>No Tournaments Yet</h3>
+                        <p>Create your first tournament to get started.</p>
+                    </div>
+                </div>
+            </section>
+
+        </section>
+
+        <!-- =========================================
+             TEAMS & SQUADS
+        ========================================== -->
+        <section class="teams-content" id="teams" hidden>
+
+            <header class="teams-header">
+                <div>
+                    <p class="dashboard-eyebrow">CRICKET MANAGEMENT</p>
+                    <h1>Teams &amp; Squads</h1>
+                    <p class="dashboard-subtitle">
+                        Create teams and manage their cricket squads.
+                    </p>
+                </div>
+
+                <button type="button" id="showTeamForm" class="team-add-btn">
+                    <i class="fas fa-plus"></i>
+                    Add Team
+                </button>
+            </header>
+
+            <section class="team-form-panel" id="teamFormPanel" hidden>
+                <h2 id="teamFormTitle">Register New Team</h2>
+
+                <form id="teamForm">
+                    <div class="team-form-grid">
+
+                        <label>
+                            Team Name
+                            <input type="text" id="teamName"
+                                placeholder="Enter team name" required>
+                        </label>
+
+                        <label>
+                            Short Name
+                            <input type="text" id="teamShortName"
+                                placeholder="e.g. DKW">
+                        </label>
+
+                        <label>
+                            City / Location
+                            <input type="text" id="teamCity"
+                                placeholder="Enter location">
+                        </label>
+
+                        <label>
+                            Coach / Team Manager
+                            <input type="text" id="teamCoach"
+                                placeholder="Enter name">
+                        </label>
+
+                        <label>
+                            Squad Size Limit
+                            <input type="number" id="teamPlayerLimit"
+                                min="1" step="1" placeholder="Enter squad limit">
+                            <small>Set a limit if your tournament requires one.</small>
+                        </label>
+
+                        <label>
+                            Team Logo / Profile
+                            <input type="file" id="teamProfileImage" accept="image/*">
+                            <small>Optional image from your device.</small>
+                        </label>
+
+                        <label>
+                            Tournament
+                            <select id="teamTournament">
+                                <option value="">No tournament selected</option>
+                            </select>
+                        </label>
+
+                    </div>
+
+                    <div class="team-form-actions">
+                        <button type="submit" class="team-save-btn">Save Team</button>
+                        <button type="button" id="cancelTeamForm"
+                            class="team-cancel-btn">Cancel</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="team-list-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Registered Teams</h2>
+                        <p>Your saved teams will appear here.</p>
+                    </div>
+                    <span id="teamCount" class="panel-tag">0 TEAMS</span>
+                </div>
+
+                <div id="teamList" class="team-list">
+                    <div class="team-empty-state">
+                        <i class="fas fa-shield-halved"></i>
+                        <h3>No Teams Yet</h3>
+                        <p>Add your first team to get started.</p>
+                    </div>
+                </div>
+            </section>
+
+        </section>
+
+        <!-- =========================================
+             PLAYERS
+        ========================================== -->
+        <section class="players-content" id="players" hidden>
+
+            <header class="players-header">
+                <div>
+                    <p class="dashboard-eyebrow">CRICKET MANAGEMENT</p>
+                    <h1>Players &amp; Roles</h1>
+                    <p class="dashboard-subtitle">
+                        Register batters, bowlers, all-rounders and wicketkeepers.
+                    </p>
+                </div>
+
+                <button type="button" id="showPlayerForm" class="player-add-btn">
+                    <i class="fas fa-plus"></i>
+                    Add Player
+                </button>
+            </header>
+
+            <section class="player-form-panel" id="playerFormPanel" hidden>
+                <h2 id="playerFormTitle">Register New Player</h2>
+
+                <form id="playerForm">
+                    <div class="player-form-grid">
+
+                        <label>
+                            Player ID
+                            <input type="text" id="playerId"
+                                placeholder="Enter unique Player ID" required>
+                            <small>Keep a unique ID for each player.</small>
+                        </label>
+
+                        <label>
+                            Player Name
+                            <input type="text" id="playerName"
+                                placeholder="Enter player name" required>
+                        </label>
+
+                        <label>
+                            Jersey Number
+                            <input type="number" id="playerJersey"
+                                step="1" placeholder="Optional shirt number">
+                        </label>
+
+                        <label>
+                            Player Role
+                            <select id="playerPosition" required>
+                                <option value="">Select cricket role</option>
+                                <option value="Batter">Batter</option>
+                                <option value="Bowler">Bowler</option>
+                                <option value="All-rounder">All-rounder</option>
+                                <option value="Wicketkeeper">Wicketkeeper</option>
+                                <option value="Wicketkeeper-batter">Wicketkeeper-batter</option>
+                                <option value="Custom">Other / Custom Role</option>
+                            </select>
+                        </label>
+
+                        <label>
+                            Team
+                            <select id="playerTeam" required>
+                                <option value="">Select team</option>
+                            </select>
+                        </label>
+
+                        <label>
+                            Batting Style
+                            <select id="playerBattingStyle">
+                                <option value="">Select if known</option>
+                                <option value="Right-handed">Right-handed</option>
+                                <option value="Left-handed">Left-handed</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </label>
+
+                        <label>
+                            Bowling Style
+                            <input type="text" id="playerBowlingStyle"
+                                placeholder="e.g. Right-arm fast">
+                        </label>
+
+                        <label>
+                            Nationality
+                            <input type="text" id="playerNationality"
+                                placeholder="Enter nationality">
+                        </label>
+
+                        <label>
+                            Age
+                            <input type="number" id="playerAge"
+                                min="1" step="1" placeholder="Enter age">
+                        </label>
+
+                        <label class="player-photo-field">
+                            Player Profile Photo
+                            <input type="file" id="playerPhoto" accept="image/*">
+                            <small>Select a photo from your device.</small>
+                        </label>
+
+                    </div>
+
+                    <div class="player-form-actions">
+                        <button type="submit" class="player-save-btn">Save Player</button>
+                        <button type="button" id="cancelPlayerForm"
+                            class="player-cancel-btn">Cancel</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="player-list-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Registered Players</h2>
+                        <p>Your registered players will appear here.</p>
+                    </div>
+                    <span id="playerCount" class="panel-tag">0 PLAYERS</span>
+                </div>
+
+                <div id="playerList" class="player-list">
+                    <div class="player-empty-state">
+                        <i class="fas fa-users"></i>
+                        <h3>No Players Yet</h3>
+                        <p>Add your first player to get started.</p>
+                    </div>
+                </div>
+            </section>
+
+        </section>
+
+        <!-- =========================================
+             MATCHES & LIVE SCORE
+             The dedicated match.js will build this page.
+        ========================================== -->
+        <section id="matches" hidden>
+            <!-- Cricket live scoring interface will be added in the match.js stage. -->
+        </section>
+
+        <!-- =========================================
+             FIXTURES & RESULTS
+        ========================================== -->
+        <section id="fixtures" hidden>
+
+            <div class="fixtures-container">
+
+                <header class="fixtures-header">
+                    <div class="fixtures-heading">
+                        <p class="fixtures-eyebrow">MATCHCRAFT CRICKET / FIXTURES</p>
+                        <h1 class="fixtures-title">Fixtures &amp; Results</h1>
+                        <p class="fixtures-subtitle">
+                            Manage cricket grounds, schedule matches and view results.
+                        </p>
+                    </div>
+
+                    <div class="fixtures-header-icon">
+                        <i class="fa-solid fa-calendar-days"></i>
+                    </div>
+                </header>
+
+                <div class="fixtures-stats">
+
+                    <div class="fixtures-stat-card">
+                        <div class="fixtures-stat-icon">
+                            <i class="fa-solid fa-calendar-check"></i>
+                        </div>
+                        <div>
+                            <p class="fixtures-stat-label">Total Matches</p>
+                            <p class="fixtures-stat-value" id="fixturesTotalMatches">0</p>
+                        </div>
+                    </div>
+
+                    <div class="fixtures-stat-card">
+                        <div class="fixtures-stat-icon">
+                            <i class="fa-solid fa-clock"></i>
+                        </div>
+                        <div>
+                            <p class="fixtures-stat-label">Upcoming Matches</p>
+                            <p class="fixtures-stat-value" id="fixturesUpcomingMatches">0</p>
+                        </div>
+                    </div>
+
+                    <div class="fixtures-stat-card">
+                        <div class="fixtures-stat-icon">
+                            <i class="fa-solid fa-stadium"></i>
+                        </div>
+                        <div>
+                            <p class="fixtures-stat-label">Available Grounds</p>
+                            <p class="fixtures-stat-value" id="fixturesTotalGrounds">0</p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Ground Management -->
+                <div class="fixtures-section">
+
+                    <div class="fixtures-section-header">
+                        <div>
+                            <h2 class="fixtures-section-title">
+                                <i class="fa-solid fa-map-location-dot"></i>
+                                Ground &amp; Venue Management
+                            </h2>
+                            <p class="fixtures-section-description">
+                                Add and manage your own cricket grounds and venues.
+                            </p>
+                        </div>
+
+                        <button type="button"
+                            class="fixtures-btn fixtures-btn--primary"
+                            id="fixturesAddGroundBtn">
+                            <i class="fa-solid fa-plus"></i>
+                            Add Ground
+                        </button>
+                    </div>
+
+                    <div class="fixtures-ground-grid" id="fixturesGroundGrid"></div>
+                </div>
+
+                <!-- Schedule Match -->
+                <div class="fixtures-section" id="fixturesScheduleSection">
+
+                    <div class="fixtures-section-header">
+                        <div>
+                            <h2 class="fixtures-section-title">
+                                <i class="fa-solid fa-calendar-plus"></i>
+                                Schedule a Match
+                            </h2>
+                            <p class="fixtures-section-description">
+                                Select a tournament, two teams, venue, date and start time.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="fixtures-panel">
+                        <form id="fixturesMatchForm">
+
+                            <input type="hidden" id="fixturesEditingMatchId" value="">
+
+                            <div class="fixtures-form-grid">
+
+                                <div class="fixtures-field">
+                                    <label class="fixtures-label" for="fixturesTournament">
+                                        Tournament <span class="fixtures-required">*</span>
+                                    </label>
+                                    <select class="fixtures-select" id="fixturesTournament" required>
+                                        <option value="">Select Tournament</option>
+                                    </select>
+                                </div>
+
+                                <div class="fixtures-field">
+                                    <label class="fixtures-label" for="fixturesMatchVenue">
+                                        Ground / Venue <span class="fixtures-required">*</span>
+                                    </label>
+                                    <select class="fixtures-select" id="fixturesMatchVenue" required>
+                                        <option value="">Select Ground</option>
+                                    </select>
+                                </div>
+
+                                <div class="fixtures-field">
+                                    <label class="fixtures-label" for="fixturesHomeTeam">
+                                        Team A <span class="fixtures-required">*</span>
+                                    </label>
+                                    <select class="fixtures-select" id="fixturesHomeTeam" required>
+                                        <option value="">Select Team A</option>
+                                    </select>
+                                </div>
+
+                                <div class="fixtures-field">
+                                    <label class="fixtures-label" for="fixturesAwayTeam">
+                                        Team B <span class="fixtures-required">*</span>
+                                    </label>
+                                    <select class="fixtures-select" id="fixturesAwayTeam" required>
+                                        <option value="">Select Team B</option>
+                                    </select>
+                                </div>
+
+                                <div class="fixtures-field">
+                                    <label class="fixtures-label" for="fixturesMatchDate">
+                                        Match Date <span class="fixtures-required">*</span>
+                                    </label>
+                                    <input class="fixtures-input" type="date"
+                                        id="fixturesMatchDate" required>
+                                </div>
+
+                                <div class="fixtures-field">
+                                    <label class="fixtures-label" for="fixturesMatchTime">
+                                        Start Time <span class="fixtures-required">*</span>
+                                    </label>
+                                    <input class="fixtures-input" type="time"
+                                        id="fixturesMatchTime" required>
+                                </div>
+
+                                <div class="fixtures-field fixtures-field--full">
+                                    <label class="fixtures-label" for="fixturesMatchNotes">
+                                        Match Notes (Optional)
+                                    </label>
+                                    <textarea class="fixtures-textarea"
+                                        id="fixturesMatchNotes"
+                                        placeholder="Enter match conditions or additional information..."></textarea>
+                                </div>
+
+                            </div>
+
+                            <div class="fixtures-form-actions">
+                                <button type="submit"
+                                    class="fixtures-btn fixtures-btn--primary"
+                                    id="fixturesSaveMatchBtn">
+                                    <i class="fa-solid fa-calendar-check"></i>
+                                    Schedule Match
+                                </button>
+
+                                <button type="button"
+                                    class="fixtures-btn fixtures-btn--secondary"
+                                    id="fixturesCancelEditBtn" hidden>
+                                    Cancel Edit
+                                </button>
+
+                                <button type="reset"
+                                    class="fixtures-btn fixtures-btn--secondary"
+                                    id="fixturesResetMatchBtn">
+                                    <i class="fa-solid fa-rotate-left"></i>
+                                    Reset Form
+                                </button>
+                            </div>
+
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Match List -->
+                <div class="fixtures-section">
+
+                    <div class="fixtures-section-header">
+                        <div>
+                            <h2 class="fixtures-section-title">
+                                <i class="fa-solid fa-list-check"></i>
+                                Fixtures &amp; Results
+                            </h2>
+                            <p class="fixtures-section-description">
+                                View, edit and manage your scheduled cricket matches.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="fixtures-panel">
+
+                        <div class="fixtures-toolbar">
+                            <div class="fixtures-toolbar-controls">
+                                <input type="search"
+                                    class="fixtures-input fixtures-search"
+                                    id="fixturesMatchSearch"
+                                    placeholder="Search teams, tournament or ground...">
+
+                                <select class="fixtures-select fixtures-filter"
+                                    id="fixturesMatchStatusFilter">
+                                    <option value="all">All Matches</option>
+                                    <option value="upcoming">Upcoming</option>
+                                    <option value="live">Live</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="cancelled">Cancelled</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="fixtures-match-list" id="fixturesMatchList"></div>
+
+                        <div class="fixtures-empty" id="fixturesMatchesEmpty" hidden>
+                            <div class="fixtures-empty-icon">
+                                <i class="fa-solid fa-calendar-xmark"></i>
+                            </div>
+                            <h3 class="fixtures-empty-title">No Matches Found</h3>
+                            <p class="fixtures-empty-text">
+                                Schedule your first match using the form above.
+                            </p>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- =========================================
+             STANDINGS & PLAYOFFS
+        ========================================== -->
+        <section id="standings" hidden>
+            <!-- The dedicated bracat.js module will build this page. -->
+        </section>
+
+        <!-- =========================================
+             STATISTICS & AWARDS
+        ========================================== -->
+        <section id="statistics" hidden>
+            <!-- The dedicated status.js module will build this page. -->
+        </section>
+
+        <!-- =========================================
+             ABOUT & HELP — KEEP FOR FINAL STAGE
+        ========================================== -->
+        <section id="help" class="help-content" hidden>
+
+            <div class="help-hero">
+                <div class="help-hero-content">
+                    <span class="help-badge">
+                        <i class="fa-solid fa-circle-question"></i>
+                        MATCHCRAFT CRICKET SUPPORT
+                    </span>
+
+                    <h1>About &amp; Help</h1>
+
+                    <p>
+                        Cricket tournament setup, match scoring, rules and features
+                        will be explained here.
+                    </p>
+                </div>
+            </div>
+
+            <div class="help-intro-panel">
+                <h2>
+                    <i class="fa-solid fa-book-open"></i>
+                    User Guide
+                </h2>
+
+                <p>
+                    This guide will be completed after all pages and features
+                    have been built and tested.
+                </p>
+            </div>
+
+            <div id="helpCardsContainer"></div>
+
+            <div class="help-bottom-note">
+                <i class="fa-solid fa-circle-info"></i>
+                <span>
+                    Back up your tournament data before making important changes.
+                </span>
+            </div>
+
+        </section>
+
+        <!-- =========================================
+             FOOTER START
+             KEEP THIS FOOTER HTML UNCHANGED
+        ========================================== -->
+
+        <footer>
+
+            <section class="section-last">
+
+                <div class="section-last__container">
+
+                    <div class="section-last__content-2 card-footer">
+
+                        <img src="image/hussain.jpg" alt="hussain">
+                        <h2 style="font-family:Arial, Helvetica, sans-serif; font-size: 2rem; font-weight: bold;">
+                            Developed by: Md. Rabbik Hussain</h2>
+                        <p style="font-family: 'Times New Roman', Times, serif; font-size: 30px;">Helpline: <i
+                                class="fa-solid fa-phone"></i> +880 1819-682851</p>
+                        <p style="font-size: 18px;">E-mail: <i class="fa-regular fa-envelope"></i>
+                            rabbikhussain722245@gmail.com</p>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </footer>
+
+        <!-- FOOTER END -->
+
+    </div>
+
+    <!-- JavaScript: Separate modules -->
+    <script src="app.js"></script>
+    <script src="teams.js"></script>
+    <script src="players.js"></script>
+    <script src="fixtures.js"></script>
+    <script src="match.js"></script>
+    <script src="bracat.js"></script>
+    <script src="status.js"></script>
+    <script src="help.js"></script>
+
+</body>
+</html>

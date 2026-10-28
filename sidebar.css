@@ -1,0 +1,530 @@
+/* =========================================
+   MATCHCRAFT CRICKET — SIDEBAR & MAIN LAYOUT
+========================================= */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    min-width: 320px;
+    background: #101827;
+}
+
+.main-box {
+    position: relative;
+    background: url("image/criket.jpg") center center / cover no-repeat;
+    background-attachment: fixed;
+    min-height: 100vh;
+    width: 100%;
+    padding-top: 1px;
+    padding-bottom: 20px;
+}
+
+/* =========================================
+   MOBILE HEADER
+========================================= */
+
+.mobile-header {
+    display: none;
+    align-items: center;
+    gap: 16px;
+    min-height: 60px;
+    padding: 0 18px;
+    background: rgba(10, 18, 32, 0.97);
+    border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+    color: #ffffff;
+    position: relative;
+    z-index: 900;
+}
+
+.mobile-menu-btn {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    color: #ffd700;
+    font-size: 24px;
+    border-radius: 8px;
+    transition: background 0.25s ease, transform 0.25s ease;
+}
+
+.mobile-menu-btn:hover {
+    background: rgba(255, 215, 0, 0.12);
+    transform: scale(1.05);
+}
+
+.mobile-page-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #ffffff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* =========================================
+   SIDEBAR BASE
+========================================= */
+
+.main-box .sidebar_menu {
+    position: fixed;
+    top: 0;
+    left: -280px;
+    width: 280px;
+    height: 100vh;
+    height: 100dvh;
+    background: rgba(10, 18, 32, 0.97);
+    border-right: 1px solid rgba(255, 215, 0, 0.2);
+    box-shadow: 5px 0 25px rgba(0, 0, 0, 0.25);
+    z-index: 1000;
+    overflow: hidden;
+    transition: left 0.3s ease;
+}
+
+/* =========================================
+   SIDEBAR BRAND / LOGO
+========================================= */
+
+.sidebar_menu .logo {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    min-height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 38px 10px 12px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.sidebar_menu .logo a {
+    color: #ffd700;
+    font-size: 25px;
+    font-weight: 800;
+    font-family: 'Poppins', sans-serif;
+    text-align: center;
+    text-decoration: none;
+    letter-spacing: 0.6px;
+    line-height: 1.4;
+}
+
+.sidebar_menu .logo a span {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    margin-left: 3px;
+}
+
+/* =========================================
+   SIDEBAR CLOSE BUTTON
+========================================= */
+
+.main-box .btn_two {
+    position: absolute;
+    top: 5px;
+    right: 8px;
+    z-index: 1002;
+}
+
+.main-box .btn_two label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    border-radius: 8px;
+}
+
+.main-box .btn_two i {
+    color: #ffffff;
+    font-size: 23px;
+    cursor: pointer;
+    transition: transform 0.25s ease, color 0.25s ease;
+}
+
+.main-box .btn_two label:hover i {
+    color: #ff6262;
+    transform: rotate(90deg);
+}
+
+/* =========================================
+   SIDEBAR MENU
+========================================= */
+
+.sidebar_menu .menu {
+    position: absolute;
+    top: 80px;
+    left: 0;
+    width: 100%;
+    max-height: calc(100vh - 145px);
+    max-height: calc(100dvh - 145px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0 10px 10px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 215, 0, 0.45) transparent;
+}
+
+.sidebar_menu .menu::-webkit-scrollbar {
+    width: 5px;
+}
+
+.sidebar_menu .menu::-webkit-scrollbar-thumb {
+    background: rgba(255, 215, 0, 0.45);
+    border-radius: 10px;
+}
+
+.sidebar_menu .menu ul {
+    list-style: none;
+}
+
+.sidebar_menu .menu li {
+    margin-top: 6px;
+    border-radius: 8px;
+    border-left: 3px solid transparent;
+    transition:
+        background-color 0.25s ease,
+        transform 0.25s ease,
+        box-shadow 0.25s ease,
+        border-color 0.25s ease;
+}
+
+.sidebar_menu .menu li a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 49px;
+    padding: 11px 12px;
+    color: #f3f4f6;
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 1.4;
+    text-decoration: none;
+    transition: color 0.25s ease;
+}
+
+.sidebar_menu .menu li a > i:first-child {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 26px;
+    width: 26px;
+    font-size: 21px;
+    text-align: center;
+    transition:
+        color 0.25s ease,
+        transform 0.25s ease,
+        filter 0.25s ease;
+}
+
+.sidebar_menu .menu li a span {
+    flex: 1;
+}
+
+.sidebar_menu .menu li .help-sidebar-arrow {
+    flex: 0 0 auto;
+    width: auto;
+    font-size: 20px;
+    margin-left: auto;
+}
+
+/* =========================================
+   COLORFUL CRICKET SIDEBAR ICONS
+========================================= */
+
+.sidebar_menu .menu li:nth-child(1) a > i:first-child {
+    color: #60a5fa;
+}
+
+.sidebar_menu .menu li:nth-child(2) a > i:first-child {
+    color: #fbbf24;
+}
+
+.sidebar_menu .menu li:nth-child(3) a > i:first-child {
+    color: #34d399;
+}
+
+.sidebar_menu .menu li:nth-child(4) a > i:first-child {
+    color: #c084fc;
+}
+
+.sidebar_menu .menu li:nth-child(5) a > i:first-child {
+    color: #fb7185;
+}
+
+.sidebar_menu .menu li:nth-child(6) a > i:first-child {
+    color: #22d3ee;
+}
+
+.sidebar_menu .menu li:nth-child(7) a > i:first-child {
+    color: #a3e635;
+}
+
+.sidebar_menu .menu li:nth-child(8) a > i:first-child {
+    color: #f472b6;
+}
+
+.sidebar_menu .menu li:nth-child(9) a > i:first-child {
+    color: #a5b4fc;
+}
+
+/* =========================================
+   GOLDEN HOVER EFFECT
+========================================= */
+
+.sidebar_menu .menu li:hover {
+    background: linear-gradient(135deg, #ffd700, #f0b90b);
+    border-left-color: #b8860b;
+    box-shadow: 0 3px 12px rgba(255, 215, 0, 0.25);
+    transform: translateX(3px);
+}
+
+.sidebar_menu .menu li:hover a {
+    color: #111111;
+    font-weight: 700;
+}
+
+.sidebar_menu .menu li:hover a > i {
+    color: #111111 !important;
+    filter: none;
+    transform: scale(1.08);
+}
+
+/* Current active page */
+.sidebar_menu .menu li a.active,
+.sidebar_menu .menu li:has(a[aria-current="page"]) {
+    background: rgba(255, 215, 0, 0.12);
+    border-left-color: #ffd700;
+}
+
+.sidebar_menu .menu li a.active,
+.sidebar_menu .menu li a[aria-current="page"] {
+    color: #ffd700;
+}
+
+/* =========================================
+   SIDEBAR SOCIAL MEDIA
+========================================= */
+
+.sidebar_menu .social_media {
+    position: absolute;
+    left: 50%;
+    bottom: 14px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    padding: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(10, 18, 32, 0.97);
+}
+
+.sidebar_menu .social_media a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    text-decoration: none;
+}
+
+.sidebar_menu .social_media i {
+    color: #ffffff;
+    opacity: 0.65;
+    font-size: 18px;
+    transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.sidebar_menu .social_media a:hover i {
+    color: #ffd700;
+    opacity: 1;
+    transform: translateY(-2px);
+}
+
+/* =========================================
+   SIDEBAR OPEN / CLOSE CONTROLS
+========================================= */
+
+#check {
+    display: none;
+}
+
+.main-box .btn_one {
+    display: none;
+}
+
+#check:checked ~ .sidebar_menu {
+    left: 0;
+}
+
+/* =========================================
+   DESKTOP SIDEBAR LAYOUT
+========================================= */
+
+@media (min-width: 669px) {
+    .main-box {
+        padding-left: 280px;
+    }
+
+    .main-box .sidebar_menu {
+        top: 0;
+        left: 0;
+        width: 280px;
+        height: 100vh;
+        height: 100dvh;
+    }
+
+    .mobile-header {
+        display: none;
+    }
+
+    .main-box .btn_one,
+    .main-box .btn_two {
+        display: none;
+    }
+
+    #check {
+        display: none;
+    }
+}
+
+/* =========================================
+   MOBILE SIDEBAR LAYOUT
+========================================= */
+
+@media (max-width: 668px) {
+    .main-box {
+        padding-left: 0;
+        background-attachment: scroll;
+    }
+
+    .mobile-header {
+        display: flex;
+    }
+
+    .main-box .sidebar_menu {
+        top: 0;
+        left: -100%;
+        width: min(320px, 88vw);
+        height: 100vh;
+        height: 100dvh;
+        overflow: hidden;
+        background: rgba(10, 18, 32, 0.99);
+        transition: left 0.3s ease;
+    }
+
+    #check:checked ~ .sidebar_menu {
+        left: 0;
+    }
+
+    .main-box .btn_one {
+        display: none;
+    }
+
+    .main-box .btn_two {
+        display: block;
+    }
+
+    .sidebar_menu .menu {
+        top: 78px;
+        max-height: calc(100vh - 140px);
+        max-height: calc(100dvh - 140px);
+    }
+
+    .sidebar_menu .menu li a {
+        min-height: 47px;
+        font-size: 14px;
+    }
+
+    .sidebar_menu .menu li a > i:first-child {
+        font-size: 20px;
+    }
+
+    .sidebar_menu .logo {
+        min-height: 65px;
+    }
+
+    .sidebar_menu .logo a {
+        font-size: 24px;
+    }
+
+    .sidebar_menu .social_media {
+        bottom: 8px;
+    }
+}
+
+/* =========================================
+   FOOTER — PRESERVED FROM YOUR ORIGINAL CSS
+========================================= */
+
+/* *for footer */
+
+.card-footer {
+  box-shadow: 5px 5px 10px gray, -5px -5px 10px white;
+  border-radius: 20px;
+  transition: all .3s;
+  padding: 10px;
+  margin-top: 20px;
+}
+
+.card-footer:hover {
+  color: white;
+  background-color: #1a01f5;
+  box-shadow: inset 5px 5px 10px #000000, -5px -5px 10px #ffffff;
+}
+
+/* !footer start */
+
+.section-last__container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+  margin: 0 2rem;
+  margin-bottom: 20px;
+}
+
+.section-last__content-2 {
+  display: flex;
+  flex-direction: column;
+  flex: 50%;
+  color: gold;
+  padding: 20px;
+  margin-left: 1.5rem;
+  justify-content: center;
+  align-items: center;
+}
+
+.section-last__content-2 img {
+  width: 100px;
+  height: 100px;
+  border: 1.5px solid black;
+  border-radius: 50%;
+}
+
+/* footer end */
+
+@media(max-width:992px) {
+
+  .section-last__content-2 {
+    width: 100%;
+    margin-right: 20px;
+  }
+
+}
