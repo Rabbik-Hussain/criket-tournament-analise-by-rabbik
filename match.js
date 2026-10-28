@@ -448,7 +448,7 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
       </div>`;
   }
 
-  function renderSelectedMatch(match) {
+ function renderSelectedMatch(match) {
     const draft = state.draft || newDraft(match);
     const status = matchStatus(match);
 
@@ -458,90 +458,161 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
 
     const t1 = draft.team1Id;
     const t2 = draft.team2Id;
+
     const team1Players = getTeamPlayers(t1);
     const team2Players = getTeamPlayers(t2);
 
-    const saved1 = new Set(draft.setup.team1Players);
-    const saved2 = new Set(draft.setup.team2Players);
+    const saved1 = new Set(
+      (draft.setup.team1Players || []).map(String)
+    );
 
-    const options = (players, selected) => players.map(player => `
+    const saved2 = new Set(
+      (draft.setup.team2Players || []).map(String)
+    );
+
+    const options = (players, side) => players.map(player => `
       <label class="mc-player-option">
-        <input type="checkbox" data-action="toggle-player"
+        <input type="checkbox"
+          data-action="toggle-player"
           data-player-id="${esc(idOf(player))}"
-          data-side="${selected}" ${selected === "1"
-            ? saved1.has(idOf(player)) ? "checked" : ""
-            : saved2.has(idOf(player)) ? "checked" : ""}>
+          data-side="${side}"
+          ${side === "1"
+            ? saved1.has(String(idOf(player))) ? "checked" : ""
+            : saved2.has(String(idOf(player))) ? "checked" : ""}>
         <span class="mc-player-number">${esc(playerNumber(player) || "—")}</span>
         <span>${esc(nameOf(player))}</span>
-      </label>`).join("");
+      </label>
+    `).join("");
 
-    const chosen1 = state.players.filter(p => saved1.has(idOf(p)));
-    const chosen2 = state.players.filter(p => saved2.has(idOf(p)));
-    const isEditing = draft.phase === "setup";
+    const chosen1 = team1Players.filter(player =>
+      saved1.has(String(idOf(player)))
+    );
+
+    const chosen2 = team2Players.filter(player =>
+      saved2.has(String(idOf(player)))
+    );
+
+    const battingTeamId = String(draft.firstBattingTeamId || "");
+    const bowlingTeamId = String(draft.firstBowlingTeamId || "");
+
+    const selectedBattingPlayers =
+      battingTeamId === String(t1) ? chosen1 :
+      battingTeamId === String(t2) ? chosen2 : [];
+
+    const selectedBowlingPlayers =
+      bowlingTeamId === String(t1) ? chosen1 :
+      bowlingTeamId === String(t2) ? chosen2 : [];
 
     return `
       <div class="mc-selected-match">
         <div class="mc-match-titlebar">
           <div>
-            <span class="mc-match-eyebrow">${esc(match.round ?? match.stage ?? "Scheduled Match")}</span>
+            <span class="mc-match-eyebrow">
+              ${esc(match.round ?? match.stage ?? "Scheduled Match")}
+            </span>
+
             <h3 style="
-  display:flex;
-  align-items:center;
-  flex-wrap:wrap;
-  gap:12px;
-">
-  ${renderTeamIdentity(draft.team1Id, draft.team1Name)}
-  <span>vs</span>
-  ${renderTeamIdentity(draft.team2Id, draft.team2Name)}
-</h3>
-            <p>${esc(match.date ?? match.matchDate ?? "Date not set")} · ${draft.oversPerInnings} overs per innings</p>
+              display:flex;
+              align-items:center;
+              flex-wrap:wrap;
+              gap:12px;
+            ">
+              ${renderTeamIdentity(draft.team1Id, draft.team1Name)}
+              <span>vs</span>
+              ${renderTeamIdentity(draft.team2Id, draft.team2Name)}
+            </h3>
+
+            <p>
+              ${esc(match.date ?? match.matchDate ?? "Date not set")}
+              · ${draft.oversPerInnings} overs per innings
+            </p>
           </div>
-          <span class="mc-status mc-status-${status.toLowerCase()}">${status}</span>
+
+          <span class="mc-status mc-status-${status.toLowerCase()}">
+            ${status}
+          </span>
         </div>
 
         <div class="mc-setup-step">
           <h4><span>1</span> Select players for both teams</h4>
-          <p>Select the same number of players for each team. The list comes from the existing Player page.</p>
+
+          <p>
+            Select the players who will be available for each team.
+            The list comes from the existing Player page.
+          </p>
+
           <div class="mc-team-select-grid">
             <section class="mc-player-pick">
               <div class="mc-pick-heading">
                 <strong>${esc(draft.team1Name)}</strong>
                 <span>${chosen1.length} selected</span>
               </div>
+
               <div class="mc-player-list">
-                ${options(team1Players, "1") || `<p class="mc-empty">No players linked to this team in Player data.</p>`}
+                ${
+                  options(team1Players, "1") ||
+                  `<p class="mc-empty">No players linked to this team in Player data.</p>`
+                }
               </div>
             </section>
+
             <section class="mc-player-pick">
               <div class="mc-pick-heading">
                 <strong>${esc(draft.team2Name)}</strong>
                 <span>${chosen2.length} selected</span>
               </div>
+
               <div class="mc-player-list">
-                ${options(team2Players, "2") || `<p class="mc-empty">No players linked to this team in Player data.</p>`}
+                ${
+                  options(team2Players, "2") ||
+                  `<p class="mc-empty">No players linked to this team in Player data.</p>`
+                }
               </div>
             </section>
           </div>
-          <div class="mc-equal-count">Selected players: ${chosen1.length} vs ${chosen2.length}</div>
+
+          <div class="mc-equal-count">
+            Selected players: ${chosen1.length} vs ${chosen2.length}
+          </div>
         </div>
 
         <div class="mc-setup-step">
           <h4><span>2</span> Choose first innings teams</h4>
+
           <div class="mc-form-grid">
             <label class="mc-field">
               <span>Batting team</span>
+
               <select id="mc-first-batting">
                 <option value="">Select batting team</option>
-                <option value="${esc(t1)}" ${draft.firstBattingTeamId === t1 ? "selected" : ""}>${esc(draft.team1Name)}</option>
-                <option value="${esc(t2)}" ${draft.firstBattingTeamId === t2 ? "selected" : ""}>${esc(draft.team2Name)}</option>
+                <option value="${esc(t1)}"
+                  ${String(draft.firstBattingTeamId) === String(t1) ? "selected" : ""}
+                  ${String(draft.firstBowlingTeamId) === String(t1) ? "disabled" : ""}>
+                  ${esc(draft.team1Name)}
+                </option>
+                <option value="${esc(t2)}"
+                  ${String(draft.firstBattingTeamId) === String(t2) ? "selected" : ""}
+                  ${String(draft.firstBowlingTeamId) === String(t2) ? "disabled" : ""}>
+                  ${esc(draft.team2Name)}
+                </option>
               </select>
             </label>
+
             <label class="mc-field">
               <span>Bowling team</span>
+
               <select id="mc-first-bowling">
                 <option value="">Select bowling team</option>
-                <option value="${esc(t1)}" ${draft.firstBowlingTeamId === t1 ? "selected" : ""}>${esc(draft.team1Name)}</option>
-                <option value="${esc(t2)}" ${draft.firstBowlingTeamId === t2 ? "selected" : ""}>${esc(draft.team2Name)}</option>
+                <option value="${esc(t1)}"
+                  ${String(draft.firstBowlingTeamId) === String(t1) ? "selected" : ""}
+                  ${String(draft.firstBattingTeamId) === String(t1) ? "disabled" : ""}>
+                  ${esc(draft.team1Name)}
+                </option>
+                <option value="${esc(t2)}"
+                  ${String(draft.firstBowlingTeamId) === String(t2) ? "selected" : ""}
+                  ${String(draft.firstBattingTeamId) === String(t2) ? "disabled" : ""}>
+                  ${esc(draft.team2Name)}
+                </option>
               </select>
             </label>
           </div>
@@ -549,34 +620,78 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
 
         <div class="mc-setup-step">
           <h4><span>3</span> Select opening players</h4>
+
           <div class="mc-form-grid mc-form-grid-three">
             <label class="mc-field">
               <span>Striker</span>
-              <select id="mc-striker"><option value="">Select striker</option>
-                ${chosen1.map(p => `<option value="${esc(idOf(p))}" ${draft.setup.strikerId === idOf(p) ? "selected" : ""}>${esc(nameOf(p))}</option>`).join("")}
+
+              <select id="mc-striker">
+                <option value="">Select striker</option>
+
+                ${selectedBattingPlayers.map(player => `
+                  <option
+                    value="${esc(idOf(player))}"
+                    ${String(draft.setup.strikerId) === String(idOf(player))
+                      ? "selected" : ""}
+                    ${String(idOf(player)) === String(draft.setup.nonStrikerId)
+                      ? "disabled" : ""}>
+                    ${esc(nameOf(player))}
+                  </option>
+                `).join("")}
               </select>
             </label>
+
             <label class="mc-field">
               <span>Non-striker</span>
-              <select id="mc-non-striker"><option value="">Select non-striker</option>
-                ${chosen1.map(p => `<option value="${esc(idOf(p))}" ${draft.setup.nonStrikerId === idOf(p) ? "selected" : ""}>${esc(nameOf(p))}</option>`).join("")}
+
+              <select id="mc-non-striker">
+                <option value="">Select non-striker</option>
+
+                ${selectedBattingPlayers.map(player => `
+                  <option
+                    value="${esc(idOf(player))}"
+                    ${String(draft.setup.nonStrikerId) === String(idOf(player))
+                      ? "selected" : ""}
+                    ${String(idOf(player)) === String(draft.setup.strikerId)
+                      ? "disabled" : ""}>
+                    ${esc(nameOf(player))}
+                  </option>
+                `).join("")}
               </select>
             </label>
+
             <label class="mc-field">
               <span>Opening bowler</span>
-              <select id="mc-bowler"><option value="">Select bowler</option>
-                ${chosen2.map(p => `<option value="${esc(idOf(p))}" ${draft.setup.bowlerId === idOf(p) ? "selected" : ""}>${esc(nameOf(p))}</option>`).join("")}
+
+              <select id="mc-bowler">
+                <option value="">Select bowler</option>
+
+                ${selectedBowlingPlayers.map(player => `
+                  <option
+                    value="${esc(idOf(player))}"
+                    ${String(draft.setup.bowlerId) === String(idOf(player))
+                      ? "selected" : ""}>
+                    ${esc(nameOf(player))}
+                  </option>
+                `).join("")}
               </select>
             </label>
           </div>
-          <p class="mc-help">Select the batting team first. The opening batter and bowler lists will be refreshed to match your choices.</p>
+
+          <p class="mc-help">
+            Striker ও Non-striker অবশ্যই নির্বাচিত Batting Team-এর
+            Player হতে হবে। Opening Bowler নির্বাচিত Bowling Team-এর
+            Player হতে হবে।
+          </p>
         </div>
 
         <div class="mc-action-row">
-          <button class="mc-btn mc-btn-primary" data-action="start-match">Start Match</button>
+          <button class="mc-btn mc-btn-primary" data-action="start-match">
+            Start Match
+          </button>
         </div>
       </div>`;
-  }
+}
 
   function renderLiveMatch(match, draft) {
     const innings = activeInnings();
@@ -758,9 +873,18 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
     if (strikerId === nonStrikerId) {
       return notify("Striker ও Non-striker আলাদা খেলোয়াড় হতে হবে।");
     }
-    if (!batters.includes(strikerId) || !batters.includes(nonStrikerId) || !bowlers.includes(bowlerId)) {
-      return notify("নির্বাচিত খেলোয়াড়দের ব্যাটিং ও বোলিং দলের সঙ্গে মিলিয়ে নিন।");
-    }
+    const battingPlayerIds = new Set(batters.map(String));
+const bowlingPlayerIds = new Set(bowlers.map(String));
+
+if (
+  !battingPlayerIds.has(String(strikerId)) ||
+  !battingPlayerIds.has(String(nonStrikerId)) ||
+  !bowlingPlayerIds.has(String(bowlerId))
+) {
+  return notify(
+    "নির্বাচিত খেলোয়াড়দের ব্যাটিং ও বোলিং দলের সঙ্গে মিলিয়ে নিন।"
+  );
+}
 
     draft.firstBattingTeamId = battingId;
     draft.firstBowlingTeamId = bowlingId;
@@ -1100,11 +1224,15 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
     if (target.matches('[data-action="toggle-player"]')) {
       const side = target.dataset.side;
       const playerId = String(target.dataset.playerId);
+
       const list = side === "1"
         ? state.draft.setup.team1Players
         : state.draft.setup.team2Players;
 
-      if (target.checked && !list.includes(playerId)) list.push(playerId);
+      if (target.checked && !list.includes(playerId)) {
+        list.push(playerId);
+      }
+
       if (!target.checked) {
         const index = list.indexOf(playerId);
         if (index >= 0) list.splice(index, 1);
@@ -1113,36 +1241,120 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
       state.draft.setup.strikerId = "";
       state.draft.setup.nonStrikerId = "";
       state.draft.setup.bowlerId = "";
+
       persistDraft();
       render();
       return;
     }
 
-    if (target.id === "mc-first-batting" || target.id === "mc-first-bowling") {
+    if (
+      target.id === "mc-first-batting" ||
+      target.id === "mc-first-bowling"
+    ) {
       const draft = state.draft;
       if (!draft) return;
 
-      draft.firstBattingTeamId = $("#mc-first-batting", state.root)?.value || "";
-      draft.firstBowlingTeamId = $("#mc-first-bowling", state.root)?.value || "";
+      const battingSelect = $("#mc-first-batting", state.root);
+      const bowlingSelect = $("#mc-first-bowling", state.root);
 
-      const battingId = draft.firstBattingTeamId;
-      const bowlingId = draft.firstBowlingTeamId;
+      draft.firstBattingTeamId = battingSelect?.value || "";
+      draft.firstBowlingTeamId = bowlingSelect?.value || "";
 
-      if (battingId && bowlingId && battingId !== bowlingId) {
-        const battingPlayers = battingId === draft.team1Id
-          ? draft.setup.team1Players : draft.setup.team2Players;
-        const bowlingPlayers = bowlingId === draft.team1Id
-          ? draft.setup.team1Players : draft.setup.team2Players;
+      const battingId = String(draft.firstBattingTeamId);
+      const bowlingId = String(draft.firstBowlingTeamId);
 
-        draft.setup.strikerId = battingPlayers[0] || "";
-        draft.setup.nonStrikerId = battingPlayers[1] || "";
-        draft.setup.bowlerId = bowlingPlayers[0] || "";
+      const battingPlayers =
+        battingId === String(draft.team1Id)
+          ? draft.setup.team1Players
+          : battingId === String(draft.team2Id)
+            ? draft.setup.team2Players
+            : [];
+
+      const bowlingPlayers =
+        bowlingId === String(draft.team1Id)
+          ? draft.setup.team1Players
+          : bowlingId === String(draft.team2Id)
+            ? draft.setup.team2Players
+            : [];
+
+      const validBattingIds = new Set(battingPlayers.map(String));
+      const validBowlingIds = new Set(bowlingPlayers.map(String));
+
+      if (!validBattingIds.has(String(draft.setup.strikerId))) {
+        draft.setup.strikerId = "";
+      }
+
+      if (!validBattingIds.has(String(draft.setup.nonStrikerId))) {
+        draft.setup.nonStrikerId = "";
+      }
+
+      if (!validBowlingIds.has(String(draft.setup.bowlerId))) {
+        draft.setup.bowlerId = "";
+      }
+
+      if (
+        draft.setup.strikerId &&
+        String(draft.setup.strikerId) ===
+          String(draft.setup.nonStrikerId)
+      ) {
+        draft.setup.nonStrikerId = "";
+      }
+
+      // একই দলকে Batting ও Bowling—দুই জায়গায় রাখা যাবে না।
+      // ভুল করে একই দল নির্বাচন হলে অপর পাশের নির্বাচন পরিষ্কার হবে।
+      if (battingId && bowlingId && battingId === bowlingId) {
+        if (target.id === "mc-first-batting" && bowlingSelect) {
+          draft.firstBowlingTeamId = "";
+          draft.setup.bowlerId = "";
+        } else if (target.id === "mc-first-bowling" && battingSelect) {
+          draft.firstBattingTeamId = "";
+          draft.setup.strikerId = "";
+          draft.setup.nonStrikerId = "";
+        }
       }
 
       persistDraft();
       render();
+      return;
     }
+
+    if (target.id === "mc-striker" || target.id === "mc-non-striker") {
+  const draft = state.draft;
+  if (!draft) return;
+
+  const strikerSelect = $("#mc-striker", state.root);
+  const nonStrikerSelect = $("#mc-non-striker", state.root);
+
+  const selectedStriker = strikerSelect?.value || "";
+  const selectedNonStriker = nonStrikerSelect?.value || "";
+
+  if (
+    selectedStriker &&
+    selectedStriker === selectedNonStriker
+  ) {
+    if (target.id === "mc-striker") {
+      draft.setup.strikerId = "";
+    } else {
+      draft.setup.nonStrikerId = "";
+    }
+
+    persistDraft();
+    render();
+
+    return notify(
+      "Striker ও Non-striker আলাদা খেলোয়াড় হতে হবে।"
+    );
   }
+
+  draft.setup.strikerId = selectedStriker;
+  draft.setup.nonStrikerId = selectedNonStriker;
+
+  persistDraft();
+  render();
+  return;
+}
+
+}
 
   function findRoot() {
     const candidates = [
