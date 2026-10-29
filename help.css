@@ -1,0 +1,699 @@
+/* =========================================================
+   MATCHCRAFT CRICKET — ABOUT & HELP
+   File: help.css
+
+   Features:
+   - Premium Cricket Help UI
+   - Bangla / English Toggle
+   - Expandable Guide Cards
+   - Responsive Layout
+   - Scoped Styles
+========================================================= */
+
+/* ---------- Help page base ---------- */
+
+#help {
+    --mc-help-bg: #0b1220;
+    --mc-help-surface: #111c2e;
+    --mc-help-surface-2: #17243a;
+    --mc-help-border: rgba(148, 163, 184, 0.18);
+    --mc-help-text: #e8eef8;
+    --mc-help-muted: #a4b3c9;
+    --mc-help-accent: #36d399;
+    --mc-help-accent-2: #13b981;
+    --mc-help-radius: 16px;
+
+    color: var(--mc-help-text);
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+#help *,
+#help *::before,
+#help *::after {
+    box-sizing: border-box;
+}
+
+/* ---------- Main heading ---------- */
+
+#help [data-help-main-title] {
+    color: var(--mc-help-text);
+    font-size: clamp(1.5rem, 3vw, 2.15rem);
+    font-weight: 800;
+    line-height: 1.35;
+    margin: 0 0 12px;
+    letter-spacing: -0.025em;
+}
+
+#help [data-help-main-description] {
+    color: var(--mc-help-muted);
+    font-size: 0.98rem;
+    line-height: 1.85;
+    max-width: 850px;
+    margin: 0 0 22px;
+}
+
+#help [data-help-guide-heading] {
+    color: var(--mc-help-text);
+    font-size: clamp(1.15rem, 2vw, 1.45rem);
+    font-weight: 750;
+    margin: 26px 0 16px;
+    line-height: 1.5;
+}
+
+/* ---------- Language toggle ---------- */
+
+#help .mc-help-language-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 16px 0 24px;
+    padding: 14px 16px;
+    background:
+        linear-gradient(
+            120deg,
+            rgba(54, 211, 153, 0.09),
+            rgba(20, 184, 166, 0.035)
+        ),
+        var(--mc-help-surface);
+    border: 1px solid rgba(54, 211, 153, 0.2);
+    border-radius: var(--mc-help-radius);
+}
+
+#help .mc-help-language-label {
+    color: var(--mc-help-muted);
+    font-size: 0.88rem;
+    line-height: 1.6;
+}
+
+#help .mc-help-language-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 10px 18px;
+    border: 1px solid rgba(54, 211, 153, 0.45);
+    border-radius: 11px;
+    background: var(--mc-help-accent);
+    color: #06291e;
+    font: inherit;
+    font-size: 0.92rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+#help .mc-help-language-button:hover {
+    background: #64e7b5;
+    border-color: #64e7b5;
+    box-shadow: 0 5px 18px rgba(54, 211, 153, 0.15);
+    transform: translateY(-1px);
+}
+
+#help .mc-help-language-button:active {
+    transform: translateY(0);
+}
+
+#help .mc-help-language-button:focus-visible {
+    outline: 3px solid rgba(54, 211, 153, 0.45);
+    outline-offset: 3px;
+}
+
+/* ---------- Help card collection ---------- */
+
+#help #helpCardsContainer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    width: 100%;
+    min-width: 0;
+    align-items: start;
+}
+
+/* ---------- Individual card ---------- */
+
+#help .mc-help-card {
+    min-width: 0;
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid var(--mc-help-border);
+    border-radius: var(--mc-help-radius);
+    background: var(--mc-help-surface);
+    box-shadow: 0 7px 22px rgba(0, 0, 0, 0.12);
+    transition:
+        border-color 0.22s ease,
+        box-shadow 0.22s ease,
+        background 0.22s ease;
+}
+
+#help .mc-help-card:hover {
+    border-color: rgba(54, 211, 153, 0.35);
+}
+
+#help .mc-help-card.is-open {
+    border-color: rgba(54, 211, 153, 0.48);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+}
+
+/* ---------- Card trigger ---------- */
+
+#help .mc-help-card-trigger {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    width: 100%;
+    min-width: 0;
+    padding: 19px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+}
+
+#help .mc-help-card-trigger:hover {
+    background: rgba(148, 163, 184, 0.035);
+}
+
+#help .mc-help-card-trigger:focus-visible {
+    outline: 2px solid var(--mc-help-accent);
+    outline-offset: -4px;
+    border-radius: var(--mc-help-radius);
+}
+
+/* ---------- Card icon ---------- */
+
+#help .mc-help-card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 48px;
+    width: 48px;
+    height: 48px;
+    border: 1px solid rgba(54, 211, 153, 0.22);
+    border-radius: 14px;
+    background: rgba(54, 211, 153, 0.1);
+    color: var(--mc-help-accent);
+    font-size: 1.18rem;
+}
+
+/* ---------- Card text ---------- */
+
+#help .mc-help-card-title-wrap {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+#help .mc-help-card-title {
+    display: block;
+    color: var(--mc-help-text);
+    font-size: 1rem;
+    font-weight: 750;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+
+#help .mc-help-card-intro {
+    display: block;
+    color: var(--mc-help-muted);
+    font-size: 0.88rem;
+    font-weight: 400;
+    line-height: 1.75;
+    overflow-wrap: anywhere;
+}
+
+/* ---------- Chevron ---------- */
+
+#help .mc-help-chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--mc-help-border);
+    border-radius: 10px;
+    color: var(--mc-help-muted);
+    transition:
+        transform 0.22s ease,
+        color 0.22s ease,
+        background 0.22s ease,
+        border-color 0.22s ease;
+}
+
+#help .mc-help-card.is-open .mc-help-chevron {
+    transform: rotate(180deg);
+    color: var(--mc-help-accent);
+    background: rgba(54, 211, 153, 0.08);
+    border-color: rgba(54, 211, 153, 0.25);
+}
+
+/* ---------- Expandable panel ---------- */
+
+#help .mc-help-card-panel {
+    width: 100%;
+    min-width: 0;
+    border-top: 1px solid var(--mc-help-border);
+    background: rgba(3, 10, 22, 0.2);
+}
+
+#help .mc-help-card-panel[hidden] {
+    display: none !important;
+}
+
+#help .mc-help-card-content {
+    display: grid;
+    gap: 22px;
+    padding: 22px;
+    min-width: 0;
+}
+
+/* ---------- Detail sections ---------- */
+
+#help .mc-help-detail-section {
+    min-width: 0;
+}
+
+#help .mc-help-detail-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--mc-help-accent);
+    font-size: 0.97rem;
+    font-weight: 750;
+    line-height: 1.6;
+    margin: 0 0 12px;
+}
+
+#help .mc-help-detail-heading::before {
+    content: "";
+    display: block;
+    flex: 0 0 4px;
+    width: 4px;
+    height: 19px;
+    border-radius: 5px;
+    background: var(--mc-help-accent);
+}
+
+#help .mc-help-detail-list {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+#help .mc-help-detail-list li {
+    position: relative;
+    padding-left: 24px;
+    color: var(--mc-help-muted);
+    font-size: 0.92rem;
+    font-weight: 400;
+    line-height: 1.85;
+    overflow-wrap: anywhere;
+}
+
+#help .mc-help-detail-list li::before {
+    content: "";
+    position: absolute;
+    top: 0.72em;
+    left: 5px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--mc-help-accent);
+    box-shadow: 0 0 0 4px rgba(54, 211, 153, 0.08);
+}
+
+/* ---------- Existing About / intro / note elements ---------- */
+
+#help [data-help-about-title],
+#help [data-help-note-title] {
+    color: var(--mc-help-text);
+    font-size: 1.05rem;
+    font-weight: 750;
+    line-height: 1.6;
+    margin: 0 0 10px;
+}
+
+#help [data-help-about-description],
+#help [data-help-note] {
+    color: var(--mc-help-muted);
+    font-size: 0.93rem;
+    line-height: 1.9;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+/* ---------- Optional about / note containers ---------- */
+
+#help .mc-help-about,
+#help .mc-help-note {
+    min-width: 0;
+    padding: 20px;
+    margin: 18px 0;
+    border: 1px solid var(--mc-help-border);
+    border-radius: var(--mc-help-radius);
+    background: var(--mc-help-surface);
+}
+
+#help .mc-help-note {
+    border-left: 4px solid var(--mc-help-accent);
+    background:
+        linear-gradient(
+            115deg,
+            rgba(54, 211, 153, 0.06),
+            transparent
+        ),
+        var(--mc-help-surface);
+}
+
+/* ---------- Light theme compatibility ---------- */
+
+@media (prefers-color-scheme: light) {
+    #help {
+        --mc-help-bg: #f5f8fc;
+        --mc-help-surface: #ffffff;
+        --mc-help-surface-2: #f0f5fa;
+        --mc-help-border: rgba(71, 85, 105, 0.16);
+        --mc-help-text: #162235;
+        --mc-help-muted: #53647a;
+    }
+
+    #help .mc-help-card-panel {
+        background: rgba(241, 245, 249, 0.65);
+    }
+
+    #help .mc-help-language-bar {
+        background: #f0faf6;
+    }
+}
+
+/* ---------- Tablet ---------- */
+
+@media (max-width: 768px) {
+    #help .mc-help-language-bar {
+        padding: 13px;
+    }
+
+    #help .mc-help-card-trigger {
+        gap: 12px;
+        padding: 16px;
+    }
+
+    #help .mc-help-card-icon {
+        flex-basis: 42px;
+        width: 42px;
+        height: 42px;
+        font-size: 1.05rem;
+        border-radius: 12px;
+    }
+
+    #help .mc-help-card-content {
+        padding: 18px;
+        gap: 20px;
+    }
+
+    #help .mc-help-card-title {
+        font-size: 0.96rem;
+    }
+
+    #help .mc-help-card-intro {
+        font-size: 0.85rem;
+    }
+
+    #help .mc-help-detail-list li {
+        font-size: 0.89rem;
+    }
+}
+
+/* ---------- Mobile ---------- */
+
+@media (max-width: 480px) {
+    #help .mc-help-language-bar {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    #help .mc-help-language-button {
+        width: 100%;
+        min-height: 44px;
+    }
+
+    #help .mc-help-card-trigger {
+        align-items: flex-start;
+        gap: 10px;
+        padding: 14px 12px;
+    }
+
+    #help .mc-help-card-icon {
+        flex-basis: 36px;
+        width: 36px;
+        height: 36px;
+        font-size: 0.95rem;
+        border-radius: 10px;
+    }
+
+    #help .mc-help-card-title-wrap {
+        padding-top: 1px;
+    }
+
+    #help .mc-help-card-title {
+        font-size: 0.9rem;
+        line-height: 1.55;
+    }
+
+    #help .mc-help-card-intro {
+        font-size: 0.82rem;
+        line-height: 1.7;
+    }
+
+    #help .mc-help-chevron {
+        flex-basis: 27px;
+        width: 27px;
+        height: 27px;
+        font-size: 0.78rem;
+    }
+
+    #help .mc-help-card-content {
+        padding: 16px 13px;
+        gap: 19px;
+    }
+
+    #help .mc-help-detail-heading {
+        font-size: 0.9rem;
+    }
+
+    #help .mc-help-detail-list {
+        gap: 9px;
+    }
+
+    #help .mc-help-detail-list li {
+        padding-left: 20px;
+        font-size: 0.85rem;
+        line-height: 1.8;
+    }
+
+    #help .mc-help-detail-list li::before {
+        left: 3px;
+        width: 6px;
+        height: 6px;
+    }
+
+    #help .mc-help-about,
+    #help .mc-help-note {
+        padding: 15px;
+    }
+}
+
+/* ---------- Reduced motion accessibility ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+    #help *,
+    #help *::before,
+    #help *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}
+
+
+/* =========================================================
+   MATCHCRAFT CRICKET — HELP CARD HOVER EFFECT
+   Only visual changes on hover
+========================================================= */
+
+#help .mc-help-card {
+    transition:
+        background 0.25s ease,
+        border-color 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+#help .mc-help-card:hover {
+    background: linear-gradient(
+        135deg,
+        #102d59 0%,
+        #164783 55%,
+        #123566 100%
+    );
+    border-color: #d4af37;
+    box-shadow: 0 10px 28px rgba(15, 45, 89, 0.35);
+}
+
+/* Card heading — Golden */
+#help .mc-help-card:hover .mc-help-card-title,
+#help .mc-help-card:hover .mc-help-detail-heading {
+    color: #ffd700;
+    font-weight: 800;
+}
+
+/* Card description and detail text — Bold white */
+#help .mc-help-card:hover .mc-help-card-intro,
+#help .mc-help-card:hover .mc-help-detail-list li {
+    color: #ffffff;
+    font-weight: 700;
+}
+
+/* Slightly enlarge all card text */
+#help .mc-help-card:hover .mc-help-card-title,
+#help .mc-help-card:hover .mc-help-card-intro,
+#help .mc-help-card:hover .mc-help-detail-heading,
+#help .mc-help-card:hover .mc-help-detail-list li {
+    transform: scale(1.2);
+    transform-origin: left center;
+}
+
+/* Smooth text scaling */
+#help .mc-help-card-title,
+#help .mc-help-card-intro,
+#help .mc-help-detail-heading,
+#help .mc-help-detail-list li {
+    transition:
+        color 0.25s ease,
+        transform 0.25s ease,
+        font-weight 0.25s ease;
+}
+
+/* Keep bullet markers golden */
+#help .mc-help-card:hover .mc-help-detail-list li::before {
+    background: #ffd700;
+}
+
+/* Icon accent on hover */
+#help .mc-help-card:hover .mc-help-card-icon {
+    color: #ffd700;
+    border-color: #d4af37;
+    background: rgba(255, 215, 0, 0.12);
+}
+
+/* =========================================================
+   MATCHCRAFT CRICKET — RESPONSIVE HOVER FIX
+   Prevent text clipping on all screen sizes
+========================================================= */
+
+/* Keep card content inside its boundaries */
+#help .mc-help-card,
+#help .mc-help-card-panel,
+#help .mc-help-card-content,
+#help .mc-help-detail-section {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* Remove oversized scaling from all help text */
+#help .mc-help-card:hover .mc-help-card-title,
+#help .mc-help-card:hover .mc-help-card-intro,
+#help .mc-help-card:hover .mc-help-detail-heading,
+#help .mc-help-card:hover .mc-help-detail-list li {
+    transform: none;
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+
+/* Keep text readable and bold on hover */
+#help .mc-help-card:hover .mc-help-card-title {
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+#help .mc-help-card:hover .mc-help-card-intro,
+#help .mc-help-card:hover .mc-help-detail-list li {
+    font-size: 0.92rem;
+    font-weight: 700;
+}
+
+#help .mc-help-card:hover .mc-help-detail-heading {
+    font-size: 0.97rem;
+    font-weight: 800;
+}
+
+/* Ensure the detail list can wrap naturally */
+#help .mc-help-detail-list {
+    min-width: 0;
+    width: 100%;
+}
+
+#help .mc-help-detail-list li {
+    min-width: 0;
+    max-width: 100%;
+    padding-right: 4px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+/* Keep mobile card content within the screen */
+@media (max-width: 480px) {
+    #help .mc-help-card-trigger {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    #help .mc-help-card-title-wrap {
+        min-width: 0;
+        flex: 1 1 0%;
+    }
+
+    #help .mc-help-card:hover .mc-help-card-title {
+        font-size: 0.9rem;
+    }
+
+    #help .mc-help-card:hover .mc-help-card-intro {
+        font-size: 0.82rem;
+    }
+
+    #help .mc-help-card:hover .mc-help-detail-heading {
+        font-size: 0.9rem;
+    }
+
+    #help .mc-help-card:hover .mc-help-detail-list li {
+        font-size: 0.85rem;
+        line-height: 1.8;
+    }
+}
+
+/* Avoid hover-only styling on touch devices */
+@media (hover: none) {
+    #help .mc-help-card:hover .mc-help-card-title,
+    #help .mc-help-card:hover .mc-help-card-intro,
+    #help .mc-help-card:hover .mc-help-detail-heading,
+    #help .mc-help-card:hover .mc-help-detail-list li {
+        transform: none;
+    }
+}

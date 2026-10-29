@@ -224,40 +224,77 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
   }
 
   function getTournament(match) {
-    const tournamentId = String(
-      match?.tournamentId ?? match?.tournament_id ?? ""
-    );
-    return state.tournaments.find(item => idOf(item) === tournamentId);
-  }
+  const tournamentId = String(
+    match?.tournamentId ??
+    match?.tournament_id ??
+    match?.tournament?.id ??
+    match?.tournament?.tournamentId ??
+    ""
+  );
 
-  function getOvers(match) {
-    const tournament = getTournament(match);
-    const format = String(
-      tournament?.format ?? tournament?.matchFormat ??
-      tournament?.type ?? match?.matchType ?? match?.format ?? ""
-    ).toLowerCase();
+  if (!tournamentId) return null;
 
-    const raw = tournament?.oversPerInnings ??
+  return state.tournaments.find(item =>
+    String(item?.id ?? item?._id ?? item?.tournamentId ?? "") === tournamentId
+  ) || null;
+}
+
+ function getOvers(match) {
+  const tournament = getTournament(match);
+
+  const type = String(tournament?.type ?? "").toLowerCase();
+  const format = String(
+    tournament?.customFormat ??
+    tournament?.matchFormat ??
+    tournament?.format ??
+    match?.matchType ??
+    match?.format ??
+    ""
+  ).toLowerCase();
+
+  let raw;
+
+  if (type === "custom") {
+    // Custom tournament-এর আসল property
+    raw = tournament?.customOvers;
+  } else if (type === "t20" || type === "odi") {
+    // T20 ও ODI-এর আসল property
+    raw = tournament?.overs;
+  } else if (type === "franchise") {
+    // BPL/IPL-এ matchFormat অনুযায়ী default
+    if (format === "custom") {
+      raw =
+        tournament?.customOvers ??
+        tournament?.oversPerInnings ??
+        tournament?.overs;
+    } else {
+      raw =
+        tournament?.overs ??
+        tournament?.oversPerInnings ??
+        tournament?.oversPerInning;
+    }
+  } else {
+    raw =
+      tournament?.oversPerInnings ??
       tournament?.oversPerInning ??
       tournament?.overs ??
       tournament?.totalOvers ??
-      tournament?.matchOvers ??
-      match?.oversPerInnings ??
-      match?.oversPerInning ??
-      match?.overs ??
-      match?.totalOvers;
-
-    const number = Number(raw);
-
-    if (Number.isFinite(number) && number > 0) return number;
-
-    if (format.includes("test")) return 90;
-    if (format.includes("odi") || format.includes("one day")) return 50;
-    if (format.includes("t20") || format.includes("twenty20")) return 20;
-    if (format.includes("bpl")) return 20;
-
-    return 20;
+      tournament?.matchOvers;
   }
+
+  const overs = Number(raw);
+
+  if (Number.isFinite(overs) && overs > 0) {
+    return overs;
+  }
+
+  if (format.includes("test") || type === "test") return 90;
+  if (format.includes("odi") || format.includes("one day") || type === "odi") return 50;
+  if (format.includes("t20") || format.includes("twenty20") || type === "t20") return 20;
+  if (format.includes("bpl") || format.includes("ipl") || type === "franchise") return 20;
+
+  return 20;
+}
 
   function getTeamPlayers(teamId) {
     const id = String(teamId ?? "");
@@ -329,13 +366,45 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
     };
   }
 
-  function loadDraft(match) {
-    if (match.liveData && match.liveData.matchId === idOf(match)) {
-      state.draft = match.liveData;
-    } else {
-      state.draft = newDraft(match);
-    }
+ function loadDraft(match) {
+  if (!match) {
+    state.draft = null;
+    return null;
   }
+
+  if (
+    match.liveData &&
+    String(match.liveData.matchId) === String(idOf(match))
+  ) {
+    state.draft = match.liveData;
+  } else {
+    state.draft = newDraft(match);
+  }
+
+  const draft = state.draft;
+
+  if (!Array.isArray(draft.innings)) {
+    draft.innings = [];
+  }
+
+  // সব ইনিংসের বৈধ বলের সংখ্যা পরীক্ষা করো।
+  const legalBallsRecorded = draft.innings.reduce(
+    (total, innings) =>
+      total + (Number(innings?.legalBalls) || 0),
+    0
+  );
+
+  // ম্যাচ শুরু হয়নি এবং কোনো বল রেকর্ড হয়নি:
+  // Tournament Setup-এর সর্বশেষ ওভার নাও।
+  if (
+    draft.phase === "setup" &&
+    legalBallsRecorded === 0
+  ) {
+    draft.oversPerInnings = getOvers(match);
+  }
+
+  return draft;
+}
 
   function persistDraft() {
     const match = findMatch(state.selectedMatchId);
@@ -694,7 +763,7 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
 }
 
   function renderLiveMatch(match, draft) {
-    const innings = activeInnings();
+    const innings = draft?.innings?.[draft.currentInnings] || null;
     const score = scoreOf(innings || {});
     const battingName = innings?.battingTeamId === draft.team1Id
       ? draft.team1Name : draft.team2Name;
@@ -841,63 +910,171 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
   }
 
   function startMatch() {
-    const draft = state.draft;
-    if (!draft) return;
+    console.log("START MATCH FUNCTION ENTERED");
 
-    const team1Players = draft.setup.team1Players;
-    const team2Players = draft.setup.team2Players;
+    const match = findMatch(state.selectedMatchId);
+
+    if (!match) {
+        notify("প্রথমে একটি ম্যাচ নির্বাচন করো।");
+        return;
+    }
+
+    if (!state.draft || String(state.draft.matchId) !== String(idOf(match))) {
+        state.draft = loadDraft(match);
+    }
+
+    const draft = state.draft;
+
+    console.log("DEBUG SETUP", {
+  phase: draft?.phase,
+  setup: draft?.setup,
+  team1Players: draft?.setup?.team1Players,
+  team2Players: draft?.setup?.team2Players
+});
+
+    if (draft.phase === "live" || draft.phase === "completed") {
+        notify("এই ম্যাচ ইতিমধ্যে শুরু হয়েছে অথবা শেষ হয়েছে।");
+        render();
+        return;
+    }
+
+    const setup = draft.setup || {};
+    console.log("DEBUG BEFORE VALIDATION", {
+  team1Count: (setup.team1Players || []).length,
+  team2Count: (setup.team2Players || []).length,
+  battingTeam: $("#mc-first-batting", state.root)?.value,
+  bowlingTeam: $("#mc-first-bowling", state.root)?.value,
+  striker: $("#mc-striker", state.root)?.value,
+  nonStriker: $("#mc-non-striker", state.root)?.value,
+  bowler: $("#mc-bowler", state.root)?.value
+});
+    const team1Players = setup.team1Players || [];
+    const team2Players = setup.team2Players || [];
 
     if (!team1Players.length || !team2Players.length) {
-      return notify("প্রথমে দুই দলের খেলোয়াড় নির্বাচন করুন।");
+        notify("দুই দল থেকেই অন্তত একজন খেলোয়াড় নির্বাচন করো।");
+        return;
     }
+
     if (team1Players.length !== team2Players.length) {
-      return notify("দুই দলে সমান সংখ্যক খেলোয়াড় নির্বাচন করতে হবে।");
-    }
-    if (!draft.firstBattingTeamId || !draft.firstBowlingTeamId ||
-        draft.firstBattingTeamId === draft.firstBowlingTeamId) {
-      return notify("সঠিক ব্যাটিং দল ও বোলিং দল নির্বাচন করুন।");
+        notify("দুই দলের নির্বাচিত খেলোয়াড়ের সংখ্যা সমান হতে হবে।");
+        return;
     }
 
-    const battingId = draft.firstBattingTeamId;
-    const bowlingId = draft.firstBowlingTeamId;
-    const batters = battingId === draft.team1Id ? team1Players : team2Players;
-    const bowlers = bowlingId === draft.team1Id ? team1Players : team2Players;
+    const battingSelect = $("#mc-first-batting", state.root);
+    const bowlingSelect = $("#mc-first-bowling", state.root);
+    const strikerSelect = $("#mc-striker", state.root);
+    const nonStrikerSelect = $("#mc-non-striker", state.root);
+    const bowlerSelect = $("#mc-bowler", state.root);
 
-    const strikerId = $("#mc-striker", state.root)?.value || draft.setup.strikerId;
-    const nonStrikerId = $("#mc-non-striker", state.root)?.value || draft.setup.nonStrikerId;
-    const bowlerId = $("#mc-bowler", state.root)?.value || draft.setup.bowlerId;
+    const battingTeamId = String(
+        battingSelect?.value || draft.firstBattingTeamId || ""
+    );
 
-    if (!strikerId || !nonStrikerId || !bowlerId) {
-      return notify("Striker, Non-striker ও Opening Bowler নির্বাচন করুন।");
+    const bowlingTeamId = String(
+        bowlingSelect?.value || draft.firstBowlingTeamId || ""
+    );
+
+    const strikerId = String(
+        strikerSelect?.value || setup.strikerId || ""
+    );
+
+    const nonStrikerId = String(
+        nonStrikerSelect?.value || setup.nonStrikerId || ""
+    );
+
+    const bowlerId = String(
+        bowlerSelect?.value || setup.bowlerId || ""
+    );
+
+    if (!battingTeamId || !bowlingTeamId ||
+        battingTeamId === bowlingTeamId) {
+        notify("সঠিক ব্যাটিং দল ও বোলিং দল নির্বাচন করো।");
+        return;
     }
+
+    const battingPlayers = battingTeamId === String(draft.team1Id)
+        ? team1Players
+        : battingTeamId === String(draft.team2Id)
+            ? team2Players
+            : [];
+
+    const bowlingPlayers = bowlingTeamId === String(draft.team1Id)
+        ? team1Players
+        : bowlingTeamId === String(draft.team2Id)
+            ? team2Players
+            : [];
+
+    const selectedBatters = new Set(
+        battingPlayers.map(id => String(id))
+    );
+
+    const selectedBowlers = new Set(
+        bowlingPlayers.map(id => String(id))
+    );
+
+    if (!selectedBatters.has(strikerId) ||
+        !selectedBatters.has(nonStrikerId)) {
+        notify("স্ট্রাইকার ও নন-স্ট্রাইকারকে ব্যাটিং দলের নির্বাচিত খেলোয়াড়দের মধ্য থেকে নিতে হবে।");
+        return;
+    }
+
     if (strikerId === nonStrikerId) {
-      return notify("Striker ও Non-striker আলাদা খেলোয়াড় হতে হবে।");
+        notify("স্ট্রাইকার ও নন-স্ট্রাইকার আলাদা খেলোয়াড় হতে হবে।");
+        return;
     }
-    const battingPlayerIds = new Set(batters.map(String));
-const bowlingPlayerIds = new Set(bowlers.map(String));
 
-if (
-  !battingPlayerIds.has(String(strikerId)) ||
-  !battingPlayerIds.has(String(nonStrikerId)) ||
-  !bowlingPlayerIds.has(String(bowlerId))
-) {
-  return notify(
-    "নির্বাচিত খেলোয়াড়দের ব্যাটিং ও বোলিং দলের সঙ্গে মিলিয়ে নিন।"
-  );
-}
+    if (!selectedBowlers.has(bowlerId)) {
+        notify("ওপেনিং বোলারকে বোলিং দলের নির্বাচিত খেলোয়াড়দের মধ্য থেকে নির্বাচন করো।");
+        return;
+    }
 
-    draft.firstBattingTeamId = battingId;
-    draft.firstBowlingTeamId = bowlingId;
+    draft.firstBattingTeamId = battingTeamId;
+    draft.firstBowlingTeamId = bowlingTeamId;
+
+    // Preserve the opening player selections
+draft.setup = draft.setup || {};
+draft.setup.strikerId = strikerId;
+draft.setup.nonStrikerId = nonStrikerId;
+draft.setup.bowlerId = bowlerId;
+
     draft.innings = [
-      inningsTemplate(battingId, bowlingId, strikerId, nonStrikerId, bowlerId)
+        inningsTemplate(
+            battingTeamId,
+            bowlingTeamId,
+            strikerId,
+            nonStrikerId,
+            bowlerId
+        )
     ];
+
     draft.currentInnings = 0;
     draft.phase = "live";
     draft.result = "";
-    persistDraft();
-    state.notice = "Match started. Ball-by-ball scoring is ready.";
-    render();
-  }
+
+    console.log("BEFORE SAVE", {
+    phase: state.draft?.phase,
+    innings: state.draft?.innings?.length,
+    bowlerId: state.draft?.innings?.[0]?.bowlerId
+});
+
+   persistDraft();
+
+console.log("MATCHCRAFT START DEBUG", {
+    selectedMatchId: state.selectedMatchId,
+    draftMatchId: state.draft?.matchId,
+    phase: state.draft?.phase,
+    inningsCount: state.draft?.innings?.length,
+    currentInnings: state.draft?.currentInnings,
+    bowlerId: state.draft?.innings?.[0]?.bowlerId
+});
+
+console.log("AFTER SAVE");
+
+render();
+
+console.log("AFTER RENDER");
+}
 
   function ensureBatter(innings, id) {
     if (!innings.batters[id]) {
@@ -1185,10 +1362,10 @@ if (
 
     const action = button.dataset.action;
 
-    if (action === "refresh") {
-      readData();
-      render();
-    }
+   if (action === "refresh") {
+  refreshMatches();
+  return;
+}
 
     if (action === "select-match") {
       state.selectedMatchId = button.dataset.id;
@@ -1198,7 +1375,9 @@ if (
       render();
     }
 
-    if (action === "start-match") startMatch();
+   if (action === "start-match") {
+    startMatch();
+}
     if (action === "ball-runs") recordBall({ runs: Number(button.dataset.runs || 0) });
     if (action === "extra") chooseExtra(button.dataset.extra);
     if (action === "wicket") recordWicket();
@@ -1218,142 +1397,136 @@ if (
     }
   }
 
-  function handleChange(event) {
-    const target = event.target;
+ function handleChange(event) {
+  const target = event.target;
+  const draft = state.draft;
 
-    if (target.matches('[data-action="toggle-player"]')) {
-      const side = target.dataset.side;
-      const playerId = String(target.dataset.playerId);
+  if (!draft) return;
 
-      const list = side === "1"
-        ? state.draft.setup.team1Players
-        : state.draft.setup.team2Players;
+  draft.setup = draft.setup || {};
+  draft.setup.team1Players = (
+    draft.setup.team1Players || []
+  ).map(String);
+  draft.setup.team2Players = (
+    draft.setup.team2Players || []
+  ).map(String);
 
-      if (target.checked && !list.includes(playerId)) {
-        list.push(playerId);
+  // Selected players: synchronize actual checkbox state.
+  if (target.matches('[data-action="toggle-player"]')) {
+    const side = target.dataset.side;
+
+    const selector =
+      `[data-action="toggle-player"][data-side="${side}"]:checked`;
+
+    const selectedIds = Array.from(
+      state.root.querySelectorAll(selector)
+    ).map((checkbox) => String(checkbox.dataset.playerId));
+
+    if (side === "1") {
+      draft.setup.team1Players = selectedIds;
+    } else if (side === "2") {
+      draft.setup.team2Players = selectedIds;
+    }
+
+    draft.setup.strikerId = "";
+    draft.setup.nonStrikerId = "";
+    draft.setup.bowlerId = "";
+
+    persistDraft();
+    render();
+    return;
+  }
+
+  // First innings batting and bowling teams.
+  if (
+    target.id === "mc-first-batting" ||
+    target.id === "mc-first-bowling"
+  ) {
+    const battingSelect = $("#mc-first-batting", state.root);
+    const bowlingSelect = $("#mc-first-bowling", state.root);
+
+    draft.firstBattingTeamId = battingSelect?.value || "";
+    draft.firstBowlingTeamId = bowlingSelect?.value || "";
+
+    const battingId = String(draft.firstBattingTeamId);
+    const bowlingId = String(draft.firstBowlingTeamId);
+
+    if (battingId && battingId === bowlingId) {
+      if (target.id === "mc-first-batting") {
+        draft.firstBowlingTeamId = "";
+        draft.setup.bowlerId = "";
+      } else {
+        draft.firstBattingTeamId = "";
+        draft.setup.strikerId = "";
+        draft.setup.nonStrikerId = "";
       }
+    }
 
-      if (!target.checked) {
-        const index = list.indexOf(playerId);
-        if (index >= 0) list.splice(index, 1);
-      }
+    const validBattingPlayers =
+      String(draft.firstBattingTeamId) === String(draft.team1Id)
+        ? draft.setup.team1Players
+        : String(draft.firstBattingTeamId) === String(draft.team2Id)
+          ? draft.setup.team2Players
+          : [];
 
-      state.draft.setup.strikerId = "";
-      state.draft.setup.nonStrikerId = "";
-      state.draft.setup.bowlerId = "";
+    const validBowlingPlayers =
+      String(draft.firstBowlingTeamId) === String(draft.team1Id)
+        ? draft.setup.team1Players
+        : String(draft.firstBowlingTeamId) === String(draft.team2Id)
+          ? draft.setup.team2Players
+          : [];
 
-      persistDraft();
-      render();
-      return;
+    if (!validBattingPlayers.includes(String(draft.setup.strikerId))) {
+      draft.setup.strikerId = "";
     }
 
     if (
-      target.id === "mc-first-batting" ||
-      target.id === "mc-first-bowling"
+      !validBattingPlayers.includes(String(draft.setup.nonStrikerId)) ||
+      draft.setup.nonStrikerId === draft.setup.strikerId
     ) {
-      const draft = state.draft;
-      if (!draft) return;
-
-      const battingSelect = $("#mc-first-batting", state.root);
-      const bowlingSelect = $("#mc-first-bowling", state.root);
-
-      draft.firstBattingTeamId = battingSelect?.value || "";
-      draft.firstBowlingTeamId = bowlingSelect?.value || "";
-
-      const battingId = String(draft.firstBattingTeamId);
-      const bowlingId = String(draft.firstBowlingTeamId);
-
-      const battingPlayers =
-        battingId === String(draft.team1Id)
-          ? draft.setup.team1Players
-          : battingId === String(draft.team2Id)
-            ? draft.setup.team2Players
-            : [];
-
-      const bowlingPlayers =
-        bowlingId === String(draft.team1Id)
-          ? draft.setup.team1Players
-          : bowlingId === String(draft.team2Id)
-            ? draft.setup.team2Players
-            : [];
-
-      const validBattingIds = new Set(battingPlayers.map(String));
-      const validBowlingIds = new Set(bowlingPlayers.map(String));
-
-      if (!validBattingIds.has(String(draft.setup.strikerId))) {
-        draft.setup.strikerId = "";
-      }
-
-      if (!validBattingIds.has(String(draft.setup.nonStrikerId))) {
-        draft.setup.nonStrikerId = "";
-      }
-
-      if (!validBowlingIds.has(String(draft.setup.bowlerId))) {
-        draft.setup.bowlerId = "";
-      }
-
-      if (
-        draft.setup.strikerId &&
-        String(draft.setup.strikerId) ===
-          String(draft.setup.nonStrikerId)
-      ) {
-        draft.setup.nonStrikerId = "";
-      }
-
-      // একই দলকে Batting ও Bowling—দুই জায়গায় রাখা যাবে না।
-      // ভুল করে একই দল নির্বাচন হলে অপর পাশের নির্বাচন পরিষ্কার হবে।
-      if (battingId && bowlingId && battingId === bowlingId) {
-        if (target.id === "mc-first-batting" && bowlingSelect) {
-          draft.firstBowlingTeamId = "";
-          draft.setup.bowlerId = "";
-        } else if (target.id === "mc-first-bowling" && battingSelect) {
-          draft.firstBattingTeamId = "";
-          draft.setup.strikerId = "";
-          draft.setup.nonStrikerId = "";
-        }
-      }
-
-      persistDraft();
-      render();
-      return;
+      draft.setup.nonStrikerId = "";
     }
 
-    if (target.id === "mc-striker" || target.id === "mc-non-striker") {
-  const draft = state.draft;
-  if (!draft) return;
-
-  const strikerSelect = $("#mc-striker", state.root);
-  const nonStrikerSelect = $("#mc-non-striker", state.root);
-
-  const selectedStriker = strikerSelect?.value || "";
-  const selectedNonStriker = nonStrikerSelect?.value || "";
-
-  if (
-    selectedStriker &&
-    selectedStriker === selectedNonStriker
-  ) {
-    if (target.id === "mc-striker") {
-      draft.setup.strikerId = "";
-    } else {
-      draft.setup.nonStrikerId = "";
+    if (!validBowlingPlayers.includes(String(draft.setup.bowlerId))) {
+      draft.setup.bowlerId = "";
     }
 
     persistDraft();
     render();
-
-    return notify(
-      "Striker ও Non-striker আলাদা খেলোয়াড় হতে হবে।"
-    );
+    return;
   }
 
-  draft.setup.strikerId = selectedStriker;
-  draft.setup.nonStrikerId = selectedNonStriker;
+  // Striker and non-striker.
+  if (
+    target.id === "mc-striker" ||
+    target.id === "mc-non-striker"
+  ) {
+    const strikerSelect = $("#mc-striker", state.root);
+    const nonStrikerSelect = $("#mc-non-striker", state.root);
 
-  persistDraft();
-  render();
-  return;
-}
+    const strikerId = strikerSelect?.value || "";
+    const nonStrikerId = nonStrikerSelect?.value || "";
 
+    if (strikerId && strikerId === nonStrikerId) {
+      notify("Striker ও Non-striker আলাদা খেলোয়াড় হতে হবে।");
+      render();
+      return;
+    }
+
+    draft.setup.strikerId = strikerId;
+    draft.setup.nonStrikerId = nonStrikerId;
+
+    persistDraft();
+    render();
+    return;
+  }
+
+  // Opening bowler selection.
+  if (target.id === "mc-bowler") {
+    draft.setup.bowlerId = target.value || "";
+    persistDraft();
+    return;
+  }
 }
 
   function findRoot() {
@@ -1437,6 +1610,28 @@ function handleMatchesUpdated() {
 
     state.root.addEventListener("click", handleClick);
     state.root.addEventListener("change", handleChange);
+
+    document.addEventListener("matchcraft:datachange", () => {
+  const previousMatchId = state.selectedMatchId;
+
+  readData();
+
+  const selected = findMatch(previousMatchId);
+
+  if (selected) {
+    state.selectedMatchId = previousMatchId;
+    loadDraft(selected);
+  } else if (state.matches.length) {
+    state.selectedMatchId = idOf(state.matches[0]);
+    loadDraft(findMatch(state.selectedMatchId));
+  } else {
+    state.selectedMatchId = "";
+    state.draft = null;
+  }
+
+  render();
+});
+
     window.addEventListener(
     "matchcraft:matches-updated",
     handleMatchesUpdated
