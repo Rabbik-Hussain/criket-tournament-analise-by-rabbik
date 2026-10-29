@@ -896,26 +896,67 @@
    * Winner-to-next-round progression will be connected to match.js.
    */
   function updatePlayoffs() {
-    const data = selectedData();
+  const data = selectedData();
 
-    if (!data.selected) {
-      alert("আগে একটি নির্দিষ্ট Tournament নির্বাচন করুন।");
-      return;
-    }
-
-    const completed = data.matches.filter(isComplete).length;
-    const pending = data.matches.filter(match => !isComplete(match)).length;
-
-    alert(
-      `Playoffs Status\n\n` +
-      `Tournament: ${tournamentLabel(data.selected)}\n` +
-      `Completed matches: ${completed}\n` +
-      `Pending matches: ${pending}\n\n` +
-      `পরবর্তী রাউন্ডে বিজয়ী পাঠানোর নিয়ম match.js-এর সঙ্গে যুক্ত করতে হবে।`
-    );
-
-    render();
+  if (!data.selected) {
+    alert("আগে একটি নির্দিষ্ট Tournament নির্বাচন করুন।");
+    return;
   }
+
+  const matches = data.matches || [];
+  const completed = matches.filter(isComplete).length;
+  const pending = matches.length - completed;
+
+  const format = String(first(data.selected, [
+    "format", "tournamentFormat", "tournamentType", "type", "typeLabel"
+  ], "")).toLowerCase();
+
+  const finalMatches = matches.filter(match =>
+    /final/i.test(String(first(match, [
+      "round", "stage", "roundName", "stageName"
+    ], "")))
+  );
+
+  const knockout = /knock/i.test(format);
+  const directFinal =
+    knockout &&
+    matches.length === 1 &&
+    finalMatches.length === 0;
+
+  const actualFinalExists =
+    finalMatches.length > 0 || directFinal;
+
+  const final = finalMatches.length
+    ? finalMatches[finalMatches.length - 1]
+    : directFinal
+      ? matches[0]
+      : null;
+
+  const champion = final
+    ? winnerName(final, data.teams)
+    : "";
+
+  let message =
+    `Playoffs Status\n\n` +
+    `Tournament: ${tournamentLabel(data.selected)}\n` +
+    `Completed matches: ${completed}\n` +
+    `Pending matches: ${pending}\n`;
+
+  if (actualFinalExists) {
+    message +=
+      `\nFinal match: ${String(first(final, [
+        "round", "stage", "roundName", "stageName"
+      ], "Final"))}\n` +
+      `Champion: ${champion || "Final result pending"}\n`;
+  } else {
+    message +=
+      `\nFinal match: এখনো শনাক্ত হয়নি।\n` +
+      `বাকি ম্যাচ শেষ হলে Final নির্ধারণ করা যাবে।\n`;
+  }
+
+  alert(message);
+  render();
+}
 
   /* ==================== MAIN RENDER ==================== */
 
@@ -1330,42 +1371,118 @@
   }
 
   function renderFinalCard(data, teamA, teamB) {
-    const final = data.matches.find(match =>
-      /final/i.test(String(first(match, [
-        "round", "stage", "matchType", "roundName"
+  const selected = data.selected || {};
+
+  const format = String(first(selected, [
+    "format", "tournamentFormat", "tournamentType", "type", "typeLabel"
+  ], "")).toLowerCase();
+
+  const tournamentTeams = data.teams || [];
+
+  const tournamentMatches = (data.matches || []).filter(match => {
+    const tournamentId = String(first(match, [
+      "tournamentId", "tournament_id", "competitionId"
+    ], ""));
+
+    const selectedId = String(first(selected, ["id", "_id"], ""));
+
+    return !tournamentId || !selectedId || tournamentId === selectedId;
+  });
+
+  const finalMatches = tournamentMatches.filter(match =>
+    /final/i.test(String(first(match, [
+      "round", "stage", "roundName", "stageName"
+    ], "")))
+  );
+
+  let final = finalMatches.length
+    ? finalMatches[finalMatches.length - 1]
+    : null;
+
+  // দুই দলের Knockout হলে একটিমাত্র ম্যাচই Final।
+  if (!final && /knock/i.test(format)) {
+    const knockoutMatches = tournamentMatches.filter(match =>
+      /knockout|elimination/i.test(String(first(match, [
+        "matchType", "format", "tournamentFormat"
       ], "")))
     );
 
-    const champion = final ? winnerName(final, data.teams) : "";
+    if (knockoutMatches.length === 1) {
+      final = knockoutMatches[0];
+    }
+  }
 
-    return `
-      <article class="mc-panel mc-final-card">
-        <div class="mc-final-badge">🏆 CHAMPIONSHIP FINAL</div>
+  // Format field-এ Knockout না থাকলেও এক ম্যাচের টুর্নামেন্ট শনাক্ত করো।
+  if (!final && tournamentMatches.length === 1) {
+    const onlyMatch = tournamentMatches[0];
 
-        <div class="mc-final-teams">
-          <div><span>FINALIST 1</span><strong>${esc(teamA.name)}</strong></div>
-          <b>VS</b>
-          <div><span>FINALIST 2</span><strong>${esc(teamB.name)}</strong></div>
+    if (
+      first(onlyMatch, ["teamAId", "team1Id", "homeTeamId"], null) != null ||
+      first(onlyMatch, ["teamBId", "team2Id", "awayTeamId"], null) != null
+    ) {
+      final = onlyMatch;
+    }
+  }
+
+  const champion = final ? winnerName(final, tournamentTeams) : "";
+
+  const finalTeamA = final
+    ? tournamentTeams.find(team =>
+        String(first(team, ["id", "_id", "teamId"], "")) ===
+        String(first(final, ["teamAId", "team1Id", "homeTeamId"], ""))
+      )
+    : null;
+
+  const finalTeamB = final
+    ? tournamentTeams.find(team =>
+        String(first(team, ["id", "_id", "teamId"], "")) ===
+        String(first(final, ["teamBId", "team2Id", "awayTeamId"], ""))
+      )
+    : null;
+
+  const nameA = finalTeamA?.name || finalTeamA?.teamName ||
+    (final ? first(final, ["teamAName", "team1Name", "homeTeamName"], "") : "") ||
+    teamA?.name || "Finalist 1";
+
+  const nameB = finalTeamB?.name || finalTeamB?.teamName ||
+    (final ? first(final, ["teamBName", "team2Name", "awayTeamName"], "") : "") ||
+    teamB?.name || "Finalist 2";
+
+  return `
+    <article class="mc-panel mc-final-card">
+      <div class="mc-final-badge">🏆 CHAMPIONSHIP FINAL</div>
+
+      <div class="mc-final-teams">
+        <div>
+          <span>FINALIST 1</span>
+          <strong>${esc(nameA)}</strong>
         </div>
+        <b>VS</b>
+        <div>
+          <span>FINALIST 2</span>
+          <strong>${esc(nameB)}</strong>
+        </div>
+      </div>
 
-        ${final ? `
-          <div class="mc-final-result">
-            ${esc(scoreText(inningsTotal(final, "a")))}
-            —
-            ${esc(scoreText(inningsTotal(final, "b")))}
-            <p>${champion
+      ${final ? `
+        <div class="mc-final-result">
+          ${esc(scoreText(inningsTotal(final, "a")))}
+          —
+          ${esc(scoreText(inningsTotal(final, "b")))}
+          <p>
+            ${champion
               ? `🏆 Champion: ${esc(champion)}`
               : "Final result pending"}
-            </p>
-          </div>
-        ` : `
-          <p class="mc-muted">
-            ফাইনাল ম্যাচ এখনো Match &amp; Live-এ সংরক্ষিত হয়নি।
           </p>
-        `}
-      </article>
-    `;
-  }
+        </div>
+      ` : `
+        <p class="mc-muted">
+          ফাইনাল ম্যাচ এখনো Match &amp; Live-এ সংরক্ষিত হয়নি।
+        </p>
+      `}
+    </article>
+  `;
+}
 
   function renderBracket(data) {
     const matches = data.matches.filter(match =>
@@ -1612,32 +1729,132 @@
   /* ==================== AWARDS & REPORT ==================== */
 
   function renderAwards(data, standings, players) {
-    const byRuns = players.slice().sort((a, b) => b.runs - a.runs)[0];
-    const byWickets = players.slice().sort((a, b) => b.wickets - a.wickets)[0];
-    const bySixes = players.slice().sort((a, b) => b.sixes - a.sixes)[0];
-    const byFours = players.slice().sort((a, b) => b.fours - a.fours)[0];
+    const ranked = (field) =>
+        players
+            .filter(player => Number(player[field] || 0) > 0)
+            .slice()
+            .sort((a, b) => Number(b[field] || 0) - Number(a[field] || 0));
 
-    const final = data.matches.find(match =>
-      /final/i.test(String(first(match, [
-        "round", "stage", "matchType", "roundName"
-      ], "")))
+    const byRuns = ranked("runs")[0];
+    const byWickets = ranked("wickets")[0];
+    const bySixes = ranked("sixes")[0];
+    const byFours = ranked("fours")[0];
+
+    const byStrikeRate = players
+        .filter(player => Number(player.balls || 0) > 0)
+        .map(player => ({
+            ...player,
+            calculatedSR: Number(player.strikeRate) ||
+                (Number(player.runs || 0) / Number(player.balls || 1)) * 100
+        }))
+        .sort((a, b) => b.calculatedSR - a.calculatedSR)[0];
+
+    const byAllRound = players
+        .filter(player =>
+            Number(player.runs || 0) > 0 &&
+            Number(player.wickets || 0) > 0
+        )
+        .map(player => ({
+            ...player,
+            awardScore:
+                Number(player.runs || 0) +
+                Number(player.wickets || 0) * 20 +
+                Number(player.catches || 0) * 10 +
+                Number(player.stumpings || 0) * 10 +
+                Number(player.runOuts || 0) * 10
+        }))
+        .sort((a, b) => b.awardScore - a.awardScore)[0];
+
+    const byWicketkeeper = players
+        .filter(player =>
+            Number(player.stumpings || 0) > 0 ||
+            Number(player.catches || 0) > 0
+        )
+        .slice()
+        .sort((a, b) =>
+            (Number(b.stumpings || 0) * 2 + Number(b.catches || 0)) -
+            (Number(a.stumpings || 0) * 2 + Number(a.catches || 0))
+        )[0];
+
+    const byFielder = players
+        .filter(player =>
+            Number(player.catches || 0) > 0 ||
+            Number(player.runOuts || 0) > 0
+        )
+        .slice()
+        .sort((a, b) =>
+            (Number(b.catches || 0) + Number(b.runOuts || 0)) -
+            (Number(a.catches || 0) + Number(a.runOuts || 0))
+        )[0];
+
+    const finalMatches = (data.matches || []).filter(match =>
+        /final/i.test(String(first(match, [
+            "round", "stage", "roundName", "stageName"
+        ], "")))
     );
+
+    let final = finalMatches[finalMatches.length - 1] || null;
+
+    if (!final && (data.matches || []).length === 1) {
+        const format = String(first(data.selected || {}, [
+            "format", "tournamentFormat", "tournamentType", "type", "typeLabel"
+        ], "")).toLowerCase();
+
+        if (format.includes("knock")) {
+            final = data.matches[0];
+        }
+    }
 
     const champion = final ? winnerName(final, data.teams) : "";
 
+    const playerOfTournament = players
+        .map(player => ({
+            ...player,
+            tournamentScore:
+                Number(player.runs || 0) +
+                Number(player.wickets || 0) * 20 +
+                Number(player.catches || 0) * 10 +
+                Number(player.stumpings || 0) * 10 +
+                Number(player.runOuts || 0) * 10 +
+                Number(player.sixes || 0) * 2 +
+                Number(player.fours || 0)
+        }))
+        .filter(player => player.tournamentScore > 0)
+        .sort((a, b) => b.tournamentScore - a.tournamentScore)[0];
+
     const cards = [
-      ["🏆", "Tournament Champion", champion || "Not decided",
-        champion ? "Final result saved" : "Final result pending"],
-      ["🏏", "Top Run Scorer", byRuns?.name || "—",
-        `${byRuns?.runs || 0} runs`],
-      ["🎯", "Top Wicket Taker", byWickets?.name || "—",
-        `${byWickets?.wickets || 0} wickets`],
-      ["🚀", "Most Sixes", bySixes?.name || "—",
-        `${bySixes?.sixes || 0} sixes`],
-      ["💥", "Most Fours", byFours?.name || "—",
-        `${byFours?.fours || 0} fours`],
-      ["🥇", "League Leader", standings[0]?.name || "—",
-        standings[0] ? `${standings[0].points} points` : "No standings"]
+        ["🏆", "Tournament Champion", champion || "Not decided",
+            champion ? "Final result saved" : "Final result pending"],
+        ["🌟", "Player of the Tournament", playerOfTournament?.name || "—",
+            playerOfTournament
+                ? "Calculated from available player statistics"
+                : "Player statistics pending"],
+        ["🏏", "Best Batter / Top Run Scorer", byRuns?.name || "—",
+            `${byRuns?.runs || 0} runs`],
+        ["🔄", "Best All-Rounder", byAllRound?.name || "—",
+            byAllRound
+                ? `${byAllRound.runs} runs · ${byAllRound.wickets} wickets`
+                : "Batting and bowling data required"],
+        ["🧤", "Best Wicketkeeper", byWicketkeeper?.name || "—",
+            byWicketkeeper
+                ? `${byWicketkeeper.catches || 0} catches · ${byWicketkeeper.stumpings || 0} stumpings`
+                : "Wicketkeeping records unavailable"],
+        ["🎯", "Best Fielder", byFielder?.name || "—",
+            byFielder
+                ? `${byFielder.catches || 0} catches · ${byFielder.runOuts || 0} run outs`
+                : "Fielding records unavailable"],
+        ["⚡", "Best Strike Rate", byStrikeRate?.name || "—",
+            byStrikeRate
+                ? `${byStrikeRate.calculatedSR.toFixed(2)} SR`
+                : "Ball records required"],
+        ["🎯", "Top Wicket Taker", byWickets?.name || "—",
+            `${byWickets?.wickets || 0} wickets`],
+        ["🚀", "Most Sixes", bySixes?.name || "—",
+            `${bySixes?.sixes || 0} sixes`],
+        ["💥", "Most Fours", byFours?.name || "—",
+            `${byFours?.fours || 0} fours`],
+        ["🥇", "League Leader", standings[0]?.name || "—",
+            standings[0] ? `${standings[0].points} points` : "No standings"]
     ];
 
     return `
@@ -1645,7 +1862,7 @@
         <div>
           <span class="mc-eyebrow">SEASON HONOURS</span>
           <h2>Awards &amp; Tournament Report</h2>
-          <p>বর্তমানে সংরক্ষিত ডেটা থেকে পুরস্কারের তথ্য হিসাব করা হয়।</p>
+          <p>সংরক্ষিত ম্যাচ ও খেলোয়াড়ের পরিসংখ্যান থেকে পুরস্কার হিসাব করা হয়।</p>
         </div>
         <button type="button" class="mc-btn mc-btn-primary"
           data-action="print">Print report</button>
@@ -1674,7 +1891,7 @@
         </div>
       </article>
     `;
-  }
+}
 
   function empty(title, message) {
     return `

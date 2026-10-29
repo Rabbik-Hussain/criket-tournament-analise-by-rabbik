@@ -968,35 +968,196 @@
 
     /* DELETE */
 
-    function deleteTournament(id) {
-        const tournaments = readTournaments();
-        const tournament = tournaments.find(item => item.id === id);
+   /* =====================================================
+   SAFE TOURNAMENT DATA CLEANUP
+   Keeps team and player profiles intact.
+===================================================== */
 
-        if (!tournament) {
-            showNotice("টুর্নামেন্টটি পাওয়া যায়নি।", true);
-            return;
+function cleanTournamentRecords(tournamentId) {
+    const keys = [
+        "matchcraft_cricket_matches",
+        "matchcraft_cricket_fixtures",
+        "matchcraft_cricket_matches_fixtures",
+        "cricketMatches",
+        "cricket_matches",
+        "matches",
+        "matchcraft_matches",
+        "matchcraft_fixtures",
+        "matchcraft_scheduled_matches",
+        "matchcraft_match_center_sessions",
+        "matchcraft_cricket_standings",
+        "matchcraft_cricket_statistics",
+        "matchcraft_cricket_results",
+        "matchcraft_cricket_playoffs",
+        "matchcraft_cricket_brackets",
+        "matchcraft_cricket_awards"
+    ];
+
+    const id = String(tournamentId);
+
+    const tournamentFields = [
+        "tournamentId",
+        "tournament_id",
+        "competitionId",
+        "competition_id"
+    ];
+
+    function belongsToTournament(record) {
+        if (!record || typeof record !== "object") return false;
+
+        if (
+            tournamentFields.some(field =>
+                record[field] != null &&
+                String(record[field]) === id
+            )
+        ) {
+            return true;
         }
 
-        if (!window.confirm(`“${tournament.name}” টুর্নামেন্টটি মুছে ফেলতে চাও?`)) {
-            return;
+        if (
+            record.tournament &&
+            typeof record.tournament === "object" &&
+            record.tournament.id != null &&
+            String(record.tournament.id) === id
+        ) {
+            return true;
         }
 
-        if (!saveTournaments(tournaments.filter(item => item.id !== id))) {
-            return;
-        }
-
-        if (editingId === id) {
-            editingId = null;
-            selectedType = "";
-        }
-
-        notice = {
-            text: "টুর্নামেন্ট মুছে ফেলা হয়েছে।",
-            error: false
-        };
-
-        renderPage();
+        return false;
     }
+
+    function clean(value) {
+        if (Array.isArray(value)) {
+            return value
+                .filter(item => !belongsToTournament(item))
+                .map(item => clean(item));
+        }
+
+        if (value && typeof value === "object") {
+            if (belongsToTournament(value)) return null;
+
+            const result = {};
+
+            Object.entries(value).forEach(([key, item]) => {
+                const cleaned = clean(item);
+
+                if (cleaned !== null) {
+                    result[key] = cleaned;
+                }
+            });
+
+            return result;
+        }
+
+        return value;
+    }
+
+    const updates = [];
+
+    // Prepare all changes before writing them.
+    keys.forEach(key => {
+        const raw = localStorage.getItem(key);
+        if (raw === null) return;
+
+        try {
+            const original = JSON.parse(raw);
+            const cleaned = clean(original);
+
+            if (JSON.stringify(cleaned) !== JSON.stringify(original)) {
+                updates.push({
+                    key,
+                    value: JSON.stringify(cleaned)
+                });
+            }
+        } catch (error) {
+            console.warn("Skipped unreadable storage:", key, error);
+        }
+    });
+
+    // Do not touch team/player profile storage.
+    const previous = updates.map(item => ({
+        key: item.key,
+        value: localStorage.getItem(item.key)
+    }));
+
+    try {
+        updates.forEach(item => {
+            localStorage.setItem(item.key, item.value);
+        });
+
+        updates.forEach(item => {
+            window.dispatchEvent(new CustomEvent(
+                "matchcraft:datachange",
+                { detail: { key: item.key } }
+            ));
+        });
+
+        return true;
+    } catch (error) {
+        console.error("Tournament cleanup failed:", error);
+
+        // Roll back changes if a storage write fails.
+        previous.forEach(item => {
+            try {
+                if (item.value === null) {
+                    localStorage.removeItem(item.key);
+                } else {
+                    localStorage.setItem(item.key, item.value);
+                }
+            } catch (_) {}
+        });
+
+        showNotice("টুর্নামেন্টের ডেটা পরিষ্কার করা যায়নি।");
+        return false;
+    }
+}
+
+/* =====================================================
+   REPLACE THE OLD deleteTournament(id)
+===================================================== */
+
+function deleteTournament(id) {
+    const tournaments = readTournaments();
+    const tournament = tournaments.find(item =>
+        String(item.id) === String(id)
+    );
+
+    if (!tournament) {
+        showNotice("টুর্নামেন্টটি পাওয়া যায়নি।", true);
+        return;
+    }
+
+    const confirmed = window.confirm(
+        `“${tournament.name}” টুর্নামেন্ট এবং এর সংশ্লিষ্ট ম্যাচ ও রেকর্ড মুছে ফেলতে চাও? টিম ও প্লেয়ারের প্রোফাইল থাকবে।`
+    );
+
+    if (!confirmed) return;
+
+    // Clean related records first.
+    if (!cleanTournamentRecords(id)) return;
+
+    // Remove only this tournament.
+    const updatedTournaments = tournaments.filter(item =>
+        String(item.id) !== String(id)
+    );
+
+    if (!saveTournaments(updatedTournaments)) {
+        showNotice("টুর্নামেন্ট তালিকা সেভ করা যায়নি।", true);
+        return;
+    }
+
+    if (editingId === id) {
+        editingId = null;
+        selectedType = "";
+    }
+
+    notice = {
+        text: "টুর্নামেন্ট ও শনাক্ত করা সংশ্লিষ্ট রেকর্ড মুছে ফেলা হয়েছে।",
+        error: false
+    };
+
+    renderPage();
+}
 
     function cancelForm() {
         selectedType = "";

@@ -412,6 +412,7 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
 
     state.draft.updatedAt = new Date().toISOString();
     match.liveData = state.draft;
+    match.winnerTeamId = state.draft.winnerTeamId || null;
 
     if (state.draft.phase === "live") {
       match.status = "Live";
@@ -776,10 +777,15 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
     const batterStat = id => innings?.batters?.[String(id)] || {};
     const bowlerStat = id => innings?.bowlers?.[String(id)] || {};
 
-    const battingOptions = state.players.filter(p =>
-      playerTeamId(p) === String(innings?.battingTeamId) &&
-      !innings?.batters?.[idOf(p)]?.out
-    );
+    const battingOptions = state.players.filter(p => {
+  const playerId = String(idOf(p));
+  const stat = innings?.batters?.[playerId];
+
+  return (
+    playerTeamId(p) === String(innings?.battingTeamId) &&
+    !stat?.out
+  );
+});
     const bowlingOptions = state.players.filter(p =>
       playerTeamId(p) === String(innings?.bowlingTeamId)
     );
@@ -815,13 +821,37 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
           ${draft.innings.length > 1 ? `<div class="mc-target-line">Target: ${Number(draft.innings[0].runs || 0) + 1}</div>` : ""}
         </div>
 
-        <div class="mc-batter-table">
-          <div class="mc-table-heading"><span>Batter</span><span>R</span><span>B</span><span>4s</span><span>6s</span></div>
-          ${[striker, nonStriker].filter(Boolean).map(p => {
-            const stat = batterStat(idOf(p));
-            return `<div class="mc-table-row"><strong>${esc(nameOf(p))}${idOf(p) === String(innings.strikerId) ? " *" : ""}</strong><span>${stat.runs || 0}</span><span>${stat.balls || 0}</span><span>${stat.fours || 0}</span><span>${stat.sixes || 0}</span></div>`;
-          }).join("")}
-        </div>
+       <div class="mc-batter-table">
+  <div class="mc-table-heading">
+    <span>Batter</span>
+    <span>R</span>
+    <span>B</span>
+    <span>4s</span>
+    <span>6s</span>
+  </div>
+
+  ${Object.entries(innings?.batters || {}).map(([playerId, stat]) => {
+    const player = getPlayer(playerId);
+    const isOut = Boolean(stat.out);
+    const isStriker =
+      String(playerId) === String(innings.strikerId) && !isOut;
+
+    return `
+      <div class="mc-table-row"
+        style="${isOut ? "opacity:.45;" : ""}">
+        <strong>
+          ${esc(nameOf(player || { name: playerId }))}
+          ${isStriker ? " *" : ""}
+          ${isOut ? '<span style="color:#f87171;font-weight:800;margin-left:5px;">W</span>' : ""}
+        </strong>
+        <span>${stat.runs || 0}</span>
+        <span>${stat.balls || 0}</span>
+        <span>${stat.fours || 0}</span>
+        <span>${stat.sixes || 0}</span>
+      </div>
+    `;
+  }).join("")}
+</div>
 
         <div class="mc-bowler-line">
           <span>Bowler: <strong>${esc(nameOf(bowler || {}))}</strong></span>
@@ -1038,15 +1068,18 @@ draft.setup.strikerId = strikerId;
 draft.setup.nonStrikerId = nonStrikerId;
 draft.setup.bowlerId = bowlerId;
 
-    draft.innings = [
-        inningsTemplate(
-            battingTeamId,
-            bowlingTeamId,
-            strikerId,
-            nonStrikerId,
-            bowlerId
-        )
-    ];
+   draft.innings = [
+    inningsTemplate(
+        battingTeamId,
+        bowlingTeamId,
+        strikerId,
+        nonStrikerId,
+        bowlerId
+    )
+];
+
+// নির্বাচিত ব্যাটিং দলের মোট খেলোয়াড়সংখ্যা সংরক্ষণ।
+draft.innings[0].availableBatterCount = battingPlayers.length;
 
     draft.currentInnings = 0;
     draft.phase = "live";
@@ -1090,9 +1123,23 @@ console.log("AFTER RENDER");
     return innings.bowlers[id];
   }
 
-  function recordBall({ runs = 0, extra = "", wicket = false, wicketType = "" }) {
+ function recordBall({
+    runs = 0,
+    extra = "",
+    wicket = false,
+    wicketType = "",
+    dismissedBatterId = ""
+}) {
     const innings = activeInnings();
-    if (!innings || innings.complete || state.draft.phase !== "live") return;
+
+if (!innings || innings.complete || state.draft.phase !== "live") {
+  return;
+}
+
+if (innings.pendingNewBatter) {
+  notify("নতুন ব্যাটার নির্বাচন করে Save player selection চাপুন।");
+  return;
+}
 
     const strikerId = String(innings.strikerId);
     const bowlerId = String(innings.bowlerId);
@@ -1111,8 +1158,12 @@ console.log("AFTER RENDER");
     if (isWide) totalRuns = 1 + Number(runs || 0);
     if (isNoBall) totalRuns = 1 + Number(runs || 0);
 
-    innings.runs += totalRuns;
+   innings.runs += totalRuns;
+
+// Bye ও Leg Bye-এর রান বোলারের ব্যক্তিগত রানে যোগ হবে না।
+if (!isBye && !isLegBye) {
     bowler.runs += totalRuns;
+}
 
     if (!isWide && !isBye && !isLegBye) {
       batter.runs += batRuns;
@@ -1129,14 +1180,30 @@ console.log("AFTER RENDER");
 
     let isWicket = Boolean(wicket);
     if (isWicket) {
-      innings.wickets += 1;
-      batter.out = true;
+  innings.wickets += 1;
+ const dismissedId = String(dismissedBatterId || strikerId);
+const dismissedBatter = ensureBatter(innings, dismissedId);
 
-      const countsForBowler = !["run out", "retired hurt", "obstructing the field", "retired out"].includes(
-        String(wicketType).toLowerCase()
-      );
-      if (countsForBowler) bowler.wickets += 1;
-    }
+dismissedBatter.out = true;
+dismissedBatter.dismissal = wicketType || "Out";
+
+  const countsForBowler = ![
+    "run out",
+    "retired hurt",
+    "obstructing the field",
+    "retired out"
+  ].includes(String(wicketType).toLowerCase());
+
+  if (countsForBowler) {
+    bowler.wickets += 1;
+  }
+
+  // উইকেট পড়লে নতুন ব্যাটার নির্বাচন না করা পর্যন্ত
+  // পরের বল রেকর্ড করা যাবে না।
+  innings.pendingNewBatter = true;
+  innings.dismissedBatterId = dismissedId;
+  state.notice = `${nameOf(getPlayer(strikerId) || {})} OUT! নতুন ব্যাটার নির্বাচন করুন।`;
+}
 
     const label = isWicket ? "W" :
       isWide ? `Wd${Number(runs || 0) ? "+" + Number(runs) : ""}` :
@@ -1154,7 +1221,10 @@ console.log("AFTER RENDER");
       label,
       strikerId,
       bowlerId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      dismissedBatterId: isWicket
+    ? String(dismissedBatterId || strikerId)
+    : "",
     });
 
     const completedOver = legal && innings.legalBalls % 6 === 0;
@@ -1178,53 +1248,541 @@ console.log("AFTER RENDER");
       state.notice = "Wicket recorded. Select a new batter before recording the next ball.";
     }
 
-    if (innings.wickets >= (innings.availableBatterCount || 10)) {
-      innings.complete = true;
+    const currentDraft = state.draft;
+
+// পুরোনো ম্যাচে খেলোয়াড়সংখ্যা সংরক্ষিত না থাকলে পুনরুদ্ধার।
+if (!Number(innings.availableBatterCount)) {
+    const selectedPlayers =
+        String(innings.battingTeamId) === String(currentDraft.team1Id)
+            ? currentDraft.setup?.team1Players
+            : currentDraft.setup?.team2Players;
+
+    innings.availableBatterCount =
+        Array.isArray(selectedPlayers) && selectedPlayers.length
+            ? selectedPlayers.length
+            : Object.keys(innings.batters || {}).length;
+}
+
+// একজন ব্যাটার বাকি থাকলে ইনিংস শেষ।
+const allOut =
+    innings.wickets >=
+    Math.max(1, Number(innings.availableBatterCount) - 1);
+
+if (allOut) {
+    innings.complete = true;
+    innings.pendingNewBatter = false;
+    innings.dismissedBatterId = "";
+}
+
+// নির্ধারিত ওভার শেষ হয়েছে কি না।
+const maxBalls = Number(currentDraft.oversPerInnings) * 6;
+const oversFinished =
+    maxBalls > 0 && innings.legalBalls >= maxBalls;
+
+if (oversFinished) {
+    innings.complete = true;
+}
+
+// দ্বিতীয় ইনিংসে প্রথম দলের স্কোর অতিক্রম করলেই জয়।
+const firstInnings = currentDraft.innings[0];
+const targetReached =
+    currentDraft.currentInnings === 1 &&
+    firstInnings &&
+    innings.runs > firstInnings.runs;
+
+if (targetReached) {
+    innings.complete = true;
+}
+
+// ইনিংস শেষ হওয়ার যেকোনো কারণেই পরবর্তী পদক্ষেপ নাও।
+if (innings.complete) {
+    if (currentDraft.currentInnings === 0) {
+        if (allOut) {
+            state.notice = "All out! First innings completed.";
+        } else {
+            state.notice = "All overs completed. Starting second innings.";
+        }
+
+        finishInnings();
+        return;
     }
 
-    if (innings.legalBalls >= Number(state.draft.oversPerInnings) * 6) {
-      innings.complete = true;
+    if (targetReached) {
+        state.notice = "Target reached! Match completed.";
+    } else if (allOut) {
+        state.notice = "All out! Match completed.";
+    } else if (oversFinished) {
+        state.notice = "All overs completed. Match finished.";
     }
 
-    const firstInnings = state.draft.innings[0];
-    if (state.draft.currentInnings === 1 && firstInnings &&
-        innings.runs > firstInnings.runs) {
-      innings.complete = true;
-    }
+    completeMatch();
+    return;
+}
 
-    if (innings.complete) {
-      state.notice = "Innings completed.";
-    }
-
-    persistDraft();
-    render();
+persistDraft();
+render();
   }
 
   function chooseExtra(extra) {
-    if (extra === "wide" || extra === "noball") {
-      recordBall({ extra, runs: 0 });
-      return;
+    if (extra === "noball") {
+        showNoBallCard();
+        return;
     }
-    const input = prompt(extra === "bye" ? "Bye runs?" : "Leg-bye runs?", "1");
+
+    if (extra === "wide") {
+        recordBall({ extra: "wide", runs: 0 });
+        return;
+    }
+
+    const input = prompt(
+        extra === "bye" ? "Bye runs?" : "Leg-bye runs?",
+        "1"
+    );
+
     if (input === null) return;
+
     const runs = Number(input);
+
     if (!Number.isInteger(runs) || runs < 0 || runs > 6) {
-      return notify("০ থেকে ৬-এর মধ্যে বৈধ রান দিন।");
+        return notify("০ থেকে ৬-এর মধ্যে বৈধ রান দিন।");
     }
+
     recordBall({ extra, runs });
-  }
+}
+
+function showNoBallCard() {
+    const innings = activeInnings();
+
+    if (!innings || innings.complete || state.draft.phase !== "live") {
+        return;
+    }
+
+    if (innings.pendingNewBatter) {
+        return notify("আগে নতুন ব্যাটার নির্বাচন করুন।");
+    }
+
+    document.getElementById("mc-noball-modal")?.remove();
+
+    const modal = document.createElement("div");
+    modal.id = "mc-noball-modal";
+
+    modal.style.cssText = `
+        position:fixed;
+        inset:0;
+        z-index:100000;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:16px;
+        background:rgba(0,0,0,.76);
+    `;
+
+    const panel = document.createElement("div");
+
+    panel.style.cssText = `
+        width:100%;
+        max-width:420px;
+        max-height:90vh;
+        overflow:auto;
+        padding:22px;
+        border:1px solid #475569;
+        border-radius:18px;
+        background:#101827;
+        color:#f8fafc;
+        font-family:inherit;
+        box-shadow:0 24px 70px rgba(0,0,0,.45);
+    `;
+
+    panel.innerHTML = `
+        <h3 style="margin:0 0 8px;font-size:21px">
+            🏏 No-ball Situation
+        </h3>
+
+        <p style="color:#94a3b8;margin:0 0 18px">
+            পরিস্থিতি নির্বাচন করুন
+        </p>
+
+        <label style="display:block;margin-bottom:8px">
+            <strong>Situation</strong>
+        </label>
+
+        <select id="mc-noball-situation"
+            style="width:100%;padding:12px;border-radius:10px;
+            background:#1e293b;color:#fff;border:1px solid #475569">
+            <option value="runs">Runs</option>
+            <option value="runout">Run Out</option>
+        </select>
+
+        <div id="mc-noball-runs-box" style="margin-top:16px">
+            <label for="mc-noball-runs"
+                style="display:block;margin-bottom:8px">
+                অতিরিক্ত রান (০–৬)
+            </label>
+
+            <select id="mc-noball-runs"
+                style="width:100%;padding:12px;border-radius:10px;
+                background:#1e293b;color:#fff;border:1px solid #475569">
+                ${[0,1,2,3,4,5,6].map(n =>
+                    `<option value="${n}" ${n === 0 ? "selected" : ""}>${n} run${n === 1 ? "" : "s"}</option>`
+                ).join("")}
+            </select>
+        </div>
+
+        <div id="mc-noball-runout-box"
+            style="display:none;margin-top:16px">
+            <label for="mc-noball-dismissed"
+                style="display:block;margin-bottom:8px">
+                কোন ব্যাটার Run Out?
+            </label>
+
+            <select id="mc-noball-dismissed"
+                style="width:100%;padding:12px;border-radius:10px;
+                background:#1e293b;color:#fff;border:1px solid #475569">
+                <option value="${esc(innings.strikerId)}">
+                    Striker — ${esc(nameOf(getPlayer(innings.strikerId) || {name: innings.strikerId}))}
+                </option>
+                <option value="${esc(innings.nonStrikerId)}">
+                    Non-striker — ${esc(nameOf(getPlayer(innings.nonStrikerId) || {name: innings.nonStrikerId}))}
+                </option>
+            </select>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:20px">
+            <button type="button" id="mc-noball-ok"
+                style="flex:1;padding:12px;border:0;border-radius:10px;
+                background:#d4a72c;color:#111827;font-weight:800">
+                OK
+            </button>
+
+            <button type="button" id="mc-noball-cancel"
+                style="flex:1;padding:12px;border:1px solid #475569;
+                border-radius:10px;background:transparent;color:#e2e8f0">
+                Cancel
+            </button>
+        </div>
+    `;
+
+    modal.appendChild(panel);
+    document.body.appendChild(modal);
+
+    const situation = panel.querySelector("#mc-noball-situation");
+    const runsBox = panel.querySelector("#mc-noball-runs-box");
+    const runoutBox = panel.querySelector("#mc-noball-runout-box");
+
+    situation.addEventListener("change", () => {
+        const runout = situation.value === "runout";
+        runsBox.style.display = runout ? "none" : "block";
+        runoutBox.style.display = runout ? "block" : "none";
+    });
+
+    panel.querySelector("#mc-noball-cancel").addEventListener("click", () => {
+        modal.remove();
+    });
+
+    modal.addEventListener("click", event => {
+        if (event.target === modal) modal.remove();
+    });
+
+    panel.querySelector("#mc-noball-ok").addEventListener("click", () => {
+        const currentInnings = activeInnings();
+
+        if (
+            !currentInnings ||
+            currentInnings.complete ||
+            state.draft.phase !== "live" ||
+            currentInnings.pendingNewBatter
+        ) {
+            modal.remove();
+            return;
+        }
+
+        if (situation.value === "runout") {
+            const dismissedId =
+                panel.querySelector("#mc-noball-dismissed").value;
+
+            modal.remove();
+
+            recordBall({
+                extra: "noball",
+                runs: 0,
+                wicket: true,
+                wicketType: "Run Out",
+                dismissedBatterId: dismissedId
+            });
+
+            return;
+        }
+
+        const runs = Number(
+            panel.querySelector("#mc-noball-runs").value
+        );
+
+        modal.remove();
+
+        recordBall({
+            extra: "noball",
+            runs
+        });
+    });
+}
 
   function recordWicket() {
     const innings = activeInnings();
     if (!innings) return;
 
-    const wicketType = prompt(
-      "Wicket type লিখুন: Bowled, Caught, LBW, Run Out, Stumped, Hit Wicket, Retired Out",
-      "Bowled"
+    const wicketTypes = [
+        "Bowled",
+        "Caught",
+        "LBW",
+        "Run Out",
+        "Stumped",
+        "Hit Wicket",
+        "Retired Out"
+    ];
+
+    const existingModal = document.getElementById("mc-wicket-modal");
+    if (existingModal) existingModal.remove();
+
+    const modal = document.createElement("div");
+    modal.id = "mc-wicket-modal";
+    modal.style.cssText = `
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        background: rgba(0, 0, 0, 0.72);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+    `;
+
+    const panel = document.createElement("div");
+    panel.style.cssText = `
+        width: 100%;
+        max-width: 420px;
+        max-height: 90vh;
+        overflow-y: auto;
+        background: #101827;
+        color: #f8fafc;
+        border: 1px solid #334155;
+        border-radius: 18px;
+        padding: 22px;
+        box-shadow: 0 24px 70px rgba(0,0,0,.45);
+        font-family: inherit;
+    `;
+
+    const heading = document.createElement("h3");
+    heading.textContent = "🏏 Select Wicket Type";
+    heading.style.cssText = `
+        margin: 0 0 8px;
+        font-size: 21px;
+        font-weight: 700;
+    `;
+    panel.appendChild(heading);
+
+    const subtitle = document.createElement("p");
+    subtitle.textContent = "ব্যাটার কীভাবে আউট হয়েছে নির্বাচন করো";
+    subtitle.style.cssText = `
+        margin: 0 0 18px;
+        color: #94a3b8;
+        font-size: 14px;
+    `;
+    panel.appendChild(subtitle);
+
+    const options = document.createElement("div");
+    options.style.cssText = `
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    `;
+
+    wicketTypes.forEach(type => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = type;
+        button.style.cssText = `
+            min-height: 52px;
+            padding: 12px 8px;
+            border: 1px solid #475569;
+            border-radius: 12px;
+            background: #1e293b;
+            color: #f8fafc;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        `;
+
+        button.addEventListener("click", () => {
+    modal.remove();
+
+    if (type === "Run Out") {
+        showRunOutCard();
+        return;
+    }
+
+    recordBall({
+        wicket: true,
+        wicketType: type
+    });
+});
+
+        options.appendChild(button);
+    });
+
+    panel.appendChild(options);
+
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = "Cancel";
+    cancel.style.cssText = `
+        width: 100%;
+        margin-top: 16px;
+        padding: 12px;
+        border: 1px solid #475569;
+        border-radius: 10px;
+        background: transparent;
+        color: #cbd5e1;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+    `;
+    cancel.addEventListener("click", () => modal.remove());
+
+    panel.appendChild(cancel);
+    modal.appendChild(panel);
+
+    modal.addEventListener("click", event => {
+        if (event.target === modal) modal.remove();
+    });
+
+    document.body.appendChild(modal);
+}
+
+function showRunOutCard() {
+    const innings = activeInnings();
+
+    if (!innings || innings.complete || state.draft.phase !== "live") {
+        return;
+    }
+
+    if (innings.pendingNewBatter) {
+        return notify("আগে নতুন ব্যাটার নির্বাচন করুন।");
+    }
+
+    document.getElementById("mc-runout-modal")?.remove();
+
+    const modal = document.createElement("div");
+
+    modal.id = "mc-runout-modal";
+    modal.style.cssText = `
+        position:fixed;
+        inset:0;
+        z-index:100000;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:16px;
+        background:rgba(0,0,0,.76);
+    `;
+
+    const panel = document.createElement("div");
+
+    panel.style.cssText = `
+        width:100%;
+        max-width:400px;
+        padding:22px;
+        border:1px solid #475569;
+        border-radius:18px;
+        background:#101827;
+        color:#f8fafc;
+        font-family:inherit;
+        box-shadow:0 24px 70px rgba(0,0,0,.45);
+    `;
+
+    const strikerName = nameOf(
+        getPlayer(innings.strikerId) || {name: innings.strikerId}
     );
-    if (wicketType === null || !wicketType.trim()) return;
-    recordBall({ wicket: true, wicketType: wicketType.trim() });
-  }
+
+    const nonStrikerName = nameOf(
+        getPlayer(innings.nonStrikerId) || {name: innings.nonStrikerId}
+    );
+
+    panel.innerHTML = `
+        <h3 style="margin:0 0 8px;font-size:21px">
+            🏏 Run Out
+        </h3>
+
+        <p style="color:#94a3b8;margin:0 0 16px">
+            যে ব্যাটার আউট হয়েছে তাকে নির্বাচন করুন।
+        </p>
+
+        <label for="mc-runout-player"
+            style="display:block;margin-bottom:8px">
+            Dismissed batter
+        </label>
+
+        <select id="mc-runout-player"
+            style="width:100%;padding:12px;border-radius:10px;
+            background:#1e293b;color:#fff;border:1px solid #475569">
+            <option value="${esc(innings.strikerId)}">
+                Striker — ${esc(strikerName)}
+            </option>
+            <option value="${esc(innings.nonStrikerId)}">
+                Non-striker — ${esc(nonStrikerName)}
+            </option>
+        </select>
+
+        <div style="display:flex;gap:10px;margin-top:20px">
+            <button type="button" id="mc-runout-confirm"
+                style="flex:1;padding:12px;border:0;border-radius:10px;
+                background:#d4a72c;color:#111827;font-weight:800">
+                Confirm Run Out
+            </button>
+
+            <button type="button" id="mc-runout-cancel"
+                style="flex:1;padding:12px;border:1px solid #475569;
+                border-radius:10px;background:transparent;color:#e2e8f0">
+                Cancel
+            </button>
+        </div>
+    `;
+
+    modal.appendChild(panel);
+    document.body.appendChild(modal);
+
+    panel.querySelector("#mc-runout-cancel").addEventListener("click", () => {
+        modal.remove();
+    });
+
+    modal.addEventListener("click", event => {
+        if (event.target === modal) modal.remove();
+    });
+
+    panel.querySelector("#mc-runout-confirm").addEventListener("click", () => {
+        const currentInnings = activeInnings();
+
+        if (
+            !currentInnings ||
+            currentInnings.complete ||
+            state.draft.phase !== "live" ||
+            currentInnings.pendingNewBatter
+        ) {
+            modal.remove();
+            return;
+        }
+
+        const dismissedId =
+            panel.querySelector("#mc-runout-player").value;
+
+        modal.remove();
+
+        recordBall({
+            wicket: true,
+            wicketType: "Run Out",
+            dismissedBatterId: dismissedId
+        });
+    });
+}
 
   function undoLastBall() {
     const innings = activeInnings();
@@ -1247,12 +1805,13 @@ console.log("AFTER RENDER");
 
     state.draft.innings[state.draft.currentInnings] = rebuilt;
     for (const event of oldEvents) {
-      recordBall({
-        runs: event.batterRuns,
-        extra: event.extra,
-        wicket: event.wicket,
-        wicketType: event.wicketType
-      });
+     recordBall({
+    runs: event.batterRuns,
+    extra: event.extra,
+    wicket: event.wicket,
+    wicketType: event.wicketType,
+    dismissedBatterId: event.dismissedBatterId || ""
+});
     }
 
     state.notice = "Last ball removed. Please verify the current batter and bowler.";
@@ -1272,12 +1831,34 @@ console.log("AFTER RENDER");
       return notify("দুটি আলাদা ব্যাটার এবং একজন বোলার নির্বাচন করুন।");
     }
 
-    innings.strikerId = strikerId;
-    innings.nonStrikerId = nonStrikerId;
-    innings.bowlerId = bowlerId;
-    ensureBatter(innings, strikerId);
-    ensureBatter(innings, nonStrikerId);
-    ensureBowler(innings, bowlerId);
+    if (
+  innings.batters?.[String(strikerId)]?.out ||
+  innings.batters?.[String(nonStrikerId)]?.out
+) {
+  return notify("আউট হওয়া খেলোয়াড়কে আবার নির্বাচন করা যাবে না।");
+}
+
+if (innings.pendingNewBatter) {
+  const dismissedId = String(innings.dismissedBatterId || "");
+
+  if (
+    String(strikerId) === dismissedId ||
+    String(nonStrikerId) === dismissedId
+  ) {
+    return notify("আউট হওয়া খেলোয়াড়ের পরিবর্তে নতুন ব্যাটার নির্বাচন করুন।");
+  }
+}
+
+innings.strikerId = strikerId;
+innings.nonStrikerId = nonStrikerId;
+innings.bowlerId = bowlerId;
+
+ensureBatter(innings, strikerId);
+ensureBatter(innings, nonStrikerId);
+ensureBowler(innings, bowlerId);
+
+innings.pendingNewBatter = false;
+innings.dismissedBatterId = "";
 
     persistDraft();
     state.notice = "Player selection saved.";
@@ -1310,7 +1891,7 @@ console.log("AFTER RENDER");
         const second = inningsTemplate(
           battingTeamId, bowlingTeamId, strikerId, nonStrikerId, bowlerId
         );
-        second.availableBatterCount = Math.max(1, battingPlayers.length - 1);
+        second.availableBatterCount = battingPlayers.length;
         draft.innings.push(second);
         draft.currentInnings = 1;
         draft.phase = "live";
@@ -1344,6 +1925,19 @@ console.log("AFTER RENDER");
     } else {
       draft.result = "Match tied.";
     }
+
+    const firstInnings = draft.innings[0];
+const secondInnings = draft.innings[1];
+
+draft.winnerTeamId = null;
+
+if (firstInnings && secondInnings) {
+    if (firstInnings.runs > secondInnings.runs) {
+        draft.winnerTeamId = firstInnings.battingTeamId;
+    } else if (secondInnings.runs > firstInnings.runs) {
+        draft.winnerTeamId = secondInnings.battingTeamId;
+    }
+}
 
     draft.phase = "completed";
     persistDraft();

@@ -611,43 +611,77 @@
         return pairs;
     }
 
-    function makeKnockoutPairs(teams) {
-        const participants = teams.map(team => ({
-            id: getId(team),
-            name: getTeamName(team)
-        }));
+ function makeKnockoutPairs(teams, standings = []) {
+    if (!Array.isArray(teams) || teams.length < 2) return [];
 
-        if (participants.length < 2) return [];
+    const getId = team => String(team?.id ?? team?._id ?? "");
+    const getName = team => String(team?.name ?? team?.teamName ?? "");
 
-        const pairs = [];
+    // Points Table-এর র‍্যাঙ্ক অনুযায়ী টুর্নামেন্টের দল সাজানো।
+    const rankMap = new Map();
 
-        const nextPowerOfTwo = 2 ** Math.ceil(
-            Math.log2(participants.length)
+    standings.forEach((row, index) => {
+        rankMap.set(
+            String(row.id ?? row._id ?? ""),
+            { rank: index + 1, points: Number(row.points) || 0 }
         );
+    });
 
-        const byes = nextPowerOfTwo - participants.length;
-        const roundTeams = [...participants];
+    const rankedTeams = [...teams].sort((a, b) => {
+        const ra = rankMap.get(getId(a));
+        const rb = rankMap.get(getId(b));
 
-        const advancingTeams = roundTeams.slice(0, byes);
-        const remainingTeams = roundTeams.slice(byes);
+        if (ra && rb) return ra.rank - rb.rank;
+        if (ra) return -1;
+        if (rb) return 1;
+        return getName(a).localeCompare(getName(b));
+    });
 
-        for (
-            let index = 0;
-            index + 1 < remainingTeams.length;
-            index += 2
-        ) {
-            pairs.push({
-                teamA: remainingTeams[index],
-                teamB: remainingTeams[index + 1],
-                round: 1,
-                stage: "Knockout — Round 1"
-            });
-        }
+    const count = rankedTeams.length;
+    const nextPower = 2 ** Math.ceil(Math.log2(count));
+    const byeCount = nextPower - count;
+    const preliminary = rankedTeams.slice(byeCount);
+    const byeTeams = rankedTeams.slice(0, byeCount);
 
-        pairs.byeTeams = advancingTeams;
+    const pairs = [];
 
+    // দুই দল থাকলে সরাসরি ফাইনাল।
+    if (count === 2) {
+        pairs.push({
+            teamA: rankedTeams[0],
+            teamB: rankedTeams[1],
+            round: 3,
+            stage: "Final",
+            bracketStage: "final",
+            matchType: "knockout"
+        });
         return pairs;
     }
+
+    // প্রথম রাউন্ড: উচ্চ সিড বনাম নিম্ন সিড।
+    for (let i = 0; i < preliminary.length / 2; i++) {
+        const teamA = preliminary[i];
+        const teamB = preliminary[preliminary.length - 1 - i];
+
+        pairs.push({
+            teamA,
+            teamB,
+            round: 1,
+            stage: "Knockout Round 1",
+            bracketStage: "preliminary",
+            seedA: rankedTeams.indexOf(teamA) + 1,
+            seedB: rankedTeams.indexOf(teamB) + 1,
+            matchType: "knockout"
+        });
+    }
+
+    // পরবর্তী রাউন্ডে সরাসরি যাওয়া দলগুলো।
+    pairs.byeTeams = byeTeams;
+    pairs.rankedTeams = rankedTeams;
+    pairs.nextPowerOfTwo = nextPower;
+
+    return pairs;
+}
 
     function createFixture(pair, tournament, index, existingFixtures) {
         const now = new Date().toISOString();
@@ -686,6 +720,9 @@
             round: pair.round || 1,
             roundName: roundLabel,
             stage: roundLabel,
+            bracketStage: pair.bracketStage || "",
+seedA: pair.seedA ?? null,
+seedB: pair.seedB ?? null,
             matchNumber: existingFixtures.length + index + 1,
             matchType: getTournamentFormat(tournament),
 
@@ -1297,149 +1334,155 @@
     ===================================================== */
 
     function generatePairings() {
-        try {
-            const tournament = getSelectedTournament();
+    try {
+        const tournament = getSelectedTournament();
 
-            if (!tournament) {
-                showNotice(
-                    "প্রথমে একটি টুর্নামেন্ট নির্বাচন করো।",
-                    "warning"
-                );
-                return;
-            }
+        if (!tournament) {
+            showNotice(
+                "প্রথমে একটি টুর্নামেন্ট নির্বাচন করো।",
+                "warning"
+            );
+            return;
+        }
 
-            const teams = getTournamentTeams(tournament);
+        const teams = getTournamentTeams(tournament);
 
-            if (!Array.isArray(teams) || teams.length < 2) {
-                showNotice(
-                    "এই টুর্নামেন্টের সঙ্গে অন্তত ২টি দল যুক্ত থাকতে হবে। Teams & Squads-এ দলের Tournament সেটিং পরীক্ষা করো।",
-                    "warning"
-                );
-                return;
-            }
+        if (!Array.isArray(teams) || teams.length < 2) {
+            showNotice(
+                "এই টুর্নামেন্টের সঙ্গে অন্তত ২টি দল যুক্ত থাকতে হবে। Teams & Squads-এ দলের Tournament সেটিং পরীক্ষা করো।",
+                "warning"
+            );
+            return;
+        }
 
-            const format = normalizeFormat(
-                getTournamentFormat(tournament)
+        const format = normalizeFormat(
+            getTournamentFormat(tournament)
+        );
+
+        if (format === "custom") {
+            showNotice(
+                "এই টুর্নামেন্টের ফরম্যাটটি স্বয়ংক্রিয় পেয়ারিংয়ের জন্য চেনা যায়নি। Tournament Format-এর নাম পরীক্ষা করো।",
+                "warning"
+            );
+            return;
+        }
+
+        let pairs = [];
+
+if (format === "knockout") {
+    let standings = [];
+
+    if (
+        window.CricketStatistics &&
+        typeof window.CricketStatistics.readAll === "function" &&
+        typeof window.CricketStatistics.buildStandings === "function"
+    ) {
+        const data = window.CricketStatistics.readAll();
+
+        if (data && Array.isArray(data.teams) && Array.isArray(data.matches)) {
+            standings = window.CricketStatistics.buildStandings(data);
+        }
+    }
+
+    pairs = makeKnockoutPairs(teams, standings);
+} else {
+    pairs = makeRoundRobinPairs(teams);
+}
+
+        if (!Array.isArray(pairs) || pairs.length === 0) {
+            showNotice(
+                "এই টুর্নামেন্টের জন্য কোনো ম্যাচ পেয়ারিং তৈরি করা যায়নি।",
+                "warning"
+            );
+            return;
+        }
+
+        const allFixtures = readFixtures();
+        const tournamentFixtures = getTournamentFixtures(tournament);
+        const existingKeys = getExistingPairKeys(tournamentFixtures);
+
+        const newPairs = pairs.filter(pair => {
+            const key = makePairKey(
+                pair.teamA.id,
+                pair.teamB.id,
+                pair.round
             );
 
-            if (format === "custom") {
-                showNotice(
-                    "এই টুর্নামেন্টের ফরম্যাটটি স্বয়ংক্রিয় পেয়ারিংয়ের জন্য চেনা যায়নি। Tournament Format-এর নাম পরীক্ষা করো।",
-                    "warning"
-                );
-                return;
-            }
+            if (existingKeys.has(key)) return false;
 
-            let pairs = [];
+            existingKeys.add(key);
+            return true;
+        });
 
-            if (format === "knockout") {
-                pairs = makeKnockoutPairs(teams);
-            } else {
-                pairs = makeRoundRobinPairs(teams);
-            }
-
-            if (!Array.isArray(pairs) || pairs.length === 0) {
-                showNotice(
-                    "এই টুর্নামেন্টের জন্য কোনো ম্যাচ পেয়ারিং তৈরি করা যায়নি।",
-                    "warning"
-                );
-                return;
-            }
-
-            const allFixtures = readFixtures();
-            const tournamentFixtures = getTournamentFixtures(tournament);
-            const existingKeys = getExistingPairKeys(tournamentFixtures);
-
-            const newPairs = pairs.filter(pair => {
-                const key = makePairKey(
-                    pair.teamA.id,
-                    pair.teamB.id,
-                    pair.round
-                );
-
-                if (existingKeys.has(key)) return false;
-
-                existingKeys.add(key);
-
-                return true;
-            });
-
-            if (newPairs.length === 0) {
-                renderSelectedTournament();
-                renderSchedule();
-
-                showNotice(
-                    "এই পেয়ারিংয়ের ম্যাচগুলো আগে থেকেই শিডিউলে আছে। নতুন ডুপ্লিকেট তৈরি করা হয়নি।",
-                    "info"
-                );
-
-                return;
-            }
-
-            const generatedFixtures = newPairs.map((pair, index) =>
-                createFixture(
-                    pair,
-                    tournament,
-                    index + 1,
-                    tournamentFixtures
-                )
-            );
-
-            if (
-                !Array.isArray(generatedFixtures) ||
-                generatedFixtures.length === 0
-            ) {
-                showNotice("ম্যাচ তৈরি করা যায়নি।", "error");
-                return;
-            }
-
-            const updatedFixtures = [
-                ...allFixtures,
-                ...generatedFixtures
-            ];
-
-            const saved = writeFixtures(updatedFixtures);
-
-            if (!saved) {
-                showNotice(
-                    "ম্যাচ LocalStorage-এ সংরক্ষণ করা যায়নি।",
-                    "error"
-                );
-                return;
-            }
-
-            // Match Center-কে নতুন ম্যাচের তথ্য জানানো।
-            window.dispatchEvent(
-                new CustomEvent("matchcraft:matches-updated")
-            );
-
-            if (
-                window.MATCHCRAFT_MATCH &&
-                typeof window.MATCHCRAFT_MATCH.refresh === "function"
-            ) {
-                window.MATCHCRAFT_MATCH.refresh();
-            }
-
+        if (newPairs.length === 0) {
             renderSelectedTournament();
             renderSchedule();
 
             showNotice(
-                `${generatedFixtures.length}টি নতুন ম্যাচ তৈরি ও সংরক্ষণ করা হয়েছে।`,
-                "success"
+                "এই পেয়ারিংয়ের ম্যাচগুলো আগে থেকেই শিডিউলে আছে। নতুন ডুপ্লিকেট তৈরি করা হয়নি।",
+                "info"
             );
+            return;
+        }
 
-        } catch (error) {
-            console.error(
-                "[MATCHCRAFT] Generate Pairings Error:",
-                error
-            );
+        const generatedFixtures = newPairs.map((pair, index) =>
+            createFixture(
+                pair,
+                tournament,
+                index + 1,
+                tournamentFixtures
+            )
+        );
 
+        if (!generatedFixtures.length) {
+            showNotice("ম্যাচ তৈরি করা যায়নি।", "error");
+            return;
+        }
+
+        const updatedFixtures = [
+            ...allFixtures,
+            ...generatedFixtures
+        ];
+
+        if (!writeFixtures(updatedFixtures)) {
             showNotice(
-                "ম্যাচ তৈরি করতে সমস্যা হয়েছে। JavaScript Console-এ ত্রুটিটি পরীক্ষা করতে হবে।",
+                "ম্যাচ LocalStorage-এ সংরক্ষণ করা যায়নি।",
                 "error"
             );
+            return;
         }
+
+        window.dispatchEvent(
+            new CustomEvent("matchcraft:matches-updated")
+        );
+
+        if (
+            window.MATCHCRAFT_MATCH &&
+            typeof window.MATCHCRAFT_MATCH.refresh === "function"
+        ) {
+            window.MATCHCRAFT_MATCH.refresh();
+        }
+
+        renderSelectedTournament();
+        renderSchedule();
+
+        showNotice(
+            `${generatedFixtures.length}টি নতুন ম্যাচ তৈরি ও সংরক্ষণ করা হয়েছে।`,
+            "success"
+        );
+
+    } catch (error) {
+        console.error(
+            "[MATCHCRAFT] Generate Pairings Error:",
+            error
+        );
+
+        showNotice(
+            "ম্যাচ তৈরি করতে সমস্যা হয়েছে। JavaScript Console-এ ত্রুটিটি পরীক্ষা করতে হবে।",
+            "error"
+        );
     }
+}
 
     /* =====================================================
        EVENTS

@@ -1401,104 +1401,350 @@
        DELETE TEAM / PLAYER
     ===================================================== */
 
-    function deleteTeam(teamId) {
-        const team = getTeam(teamId);
-        if (!team) return;
+   function deleteTeam(teamId) {
+    const team = getTeam(teamId);
+    if (!team) return;
 
-        const count = getTeamPlayers(teamId).length;
+    const count = getTeamPlayers(teamId).length;
 
-        const confirmed = window.confirm(
-            `Delete "${team.name}" and its ${count} squad player(s)? This cannot be undone.`
-        );
+    const confirmed = window.confirm(
+        `Delete "${team.name}" and its associated match records? ` +
+        `${count} player profile(s) will be preserved and detached from this team.`
+    );
 
-        if (!confirmed) return;
+    if (!confirmed) return;
 
-        teams = teams.filter(item => !sameId(item.id, teamId));
-        players = players.filter(player => !sameId(player.teamId, teamId));
+    const id = String(teamId);
 
-        const nextLayouts = readObject(FIELD_LAYOUT_KEY);
-        delete nextLayouts[String(teamId)];
+    const matchKeys = [
+        "matchcraft_cricket_matches",
+        "matchcraft_cricket_fixtures",
+        "matchcraft_cricket_matches_fixtures",
+        "cricketMatches",
+        "cricket_matches",
+        "matches",
+        "matchcraft_matches",
+        "matchcraft_fixtures",
+        "matchcraft_scheduled_matches",
+        "matchcraft_match_center_sessions"
+    ];
 
-        try {
-            localStorage.setItem(TEAM_KEY, JSON.stringify(teams));
-            localStorage.setItem(PLAYER_KEY, JSON.stringify(players));
-            localStorage.setItem(FIELD_LAYOUT_KEY, JSON.stringify(nextLayouts));
+    const teamFields = [
+        "teamId",
+        "team_id",
+        "homeTeamId",
+        "awayTeamId",
+        "home_team_id",
+        "away_team_id",
+        "teamAId",
+        "teamBId"
+    ];
 
-            fieldLayouts = nextLayouts;
+    function containsTeam(record) {
+        if (!record || typeof record !== "object") return false;
 
-            window.dispatchEvent(new CustomEvent("matchcraft:datachange", {
-                detail: { key: TEAM_KEY }
-            }));
-
-            window.dispatchEvent(new CustomEvent("matchcraft:datachange", {
-                detail: { key: PLAYER_KEY }
-            }));
-        } catch (error) {
-            console.error("Team deletion save failed:", error);
-            showNotice("দল মুছে ফেলার সময় ডেটা সেভ করা যায়নি।");
-            syncData();
-            return;
+        if (teamFields.some(field =>
+            record[field] != null &&
+            String(record[field]) === id
+        )) {
+            return true;
         }
 
-        activeTeamId = null;
-        showNotice("Team and its squad players deleted.");
-        renderTeams();
-        updateStats();
+        // Common nested home/away team structures.
+        for (const field of ["homeTeam", "awayTeam", "teamA", "teamB"]) {
+            const item = record[field];
+
+            if (
+                item &&
+                typeof item === "object" &&
+                item.id != null &&
+                String(item.id) === id
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
-    function deletePlayer(playerId) {
-        const player = players.find(item => sameId(item.id, playerId));
-        if (!player) return;
+    const updates = [];
 
-        const confirmed = window.confirm(
-            `Remove ${getPlayerName(player)} from this squad?`
-        );
+    // Prepare related match-store changes.
+    matchKeys.forEach(key => {
+        const raw = localStorage.getItem(key);
+        if (raw === null) return;
 
-        if (!confirmed) return;
+        try {
+            const original = JSON.parse(raw);
+            let cleaned = original;
 
-        players = players.filter(item => !sameId(item.id, playerId));
+            if (Array.isArray(original)) {
+                cleaned = original.filter(item => !containsTeam(item));
+            } else if (original && typeof original === "object") {
+                cleaned = { ...original };
 
-        /*
-           Remove this player from saved field assignments too.
-        */
+                Object.keys(cleaned).forEach(field => {
+                    if (Array.isArray(cleaned[field])) {
+                        cleaned[field] = cleaned[field].filter(
+                            item => !containsTeam(item)
+                        );
+                    } else if (containsTeam(cleaned[field])) {
+                        delete cleaned[field];
+                    }
+                });
 
-        const nextLayouts = readObject(FIELD_LAYOUT_KEY);
+                if (containsTeam(original)) {
+                    cleaned = null;
+                }
+            }
 
-        Object.keys(nextLayouts).forEach(teamKey => {
-            Object.keys(nextLayouts[teamKey] || {}).forEach(format => {
-                nextLayouts[teamKey][format] =
-                    (nextLayouts[teamKey][format] || []).map(position => ({
-                        ...position,
-                        playerId: sameId(position.playerId, playerId)
-                            ? ""
-                            : position.playerId
-                    }));
-            });
+            if (JSON.stringify(cleaned) !== JSON.stringify(original)) {
+                updates.push({
+                    key,
+                    value: JSON.stringify(cleaned)
+                });
+            }
+        } catch (error) {
+            console.warn("Skipped unreadable match data:", key, error);
+        }
+    });
+
+    // Preserve all player profiles; detach them from this team.
+    const updatedPlayers = players.map(player => {
+        if (!sameId(player.teamId, teamId)) return player;
+
+        return {
+            ...player,
+            teamId: "",
+            teamName: "",
+            isCaptain: false,
+            isWicketkeeper: false,
+            fieldPosition: ""
+        };
+    });
+
+    const updatedTeams = teams.filter(item =>
+        !sameId(item.id, teamId)
+    );
+
+    const nextLayouts = readObject(FIELD_LAYOUT_KEY);
+    delete nextLayouts[String(teamId)];
+
+    // Snapshot changed values for rollback.
+    const snapshots = [
+        TEAM_KEY,
+        PLAYER_KEY,
+        FIELD_LAYOUT_KEY,
+        ...updates.map(item => item.key)
+    ].map(key => ({
+        key,
+        value: localStorage.getItem(key)
+    }));
+
+    try {
+        localStorage.setItem(TEAM_KEY, JSON.stringify(updatedTeams));
+        localStorage.setItem(PLAYER_KEY, JSON.stringify(updatedPlayers));
+        localStorage.setItem(FIELD_LAYOUT_KEY, JSON.stringify(nextLayouts));
+
+        updates.forEach(item => {
+            localStorage.setItem(item.key, item.value);
+        });
+    } catch (error) {
+        console.error("Team deletion failed:", error);
+
+        snapshots.forEach(item => {
+            try {
+                if (item.value === null) {
+                    localStorage.removeItem(item.key);
+                } else {
+                    localStorage.setItem(item.key, item.value);
+                }
+            } catch (_) {}
         });
 
-        try {
-            localStorage.setItem(PLAYER_KEY, JSON.stringify(players));
-            localStorage.setItem(FIELD_LAYOUT_KEY, JSON.stringify(nextLayouts));
-
-            fieldLayouts = nextLayouts;
-
-            window.dispatchEvent(new CustomEvent("matchcraft:datachange", {
-                detail: { key: PLAYER_KEY }
-            }));
-        } catch (error) {
-            console.error("Player removal save failed:", error);
-            showNotice("Player remove করার সময় ডেটা সেভ করা যায়নি।");
-            syncData();
-            return;
-        }
-
-        if (activeTeamId) {
-            renderSquad(activeTeamId);
-        }
-
-        updateStats();
-        showNotice("Player removed from squad.");
+        syncData();
+        showNotice("ডেটা সেভ করা যায়নি। কোনো পরিবর্তন সম্পন্ন হয়নি।");
+        return;
     }
+
+    teams = updatedTeams;
+    players = updatedPlayers;
+    fieldLayouts = nextLayouts;
+    activeTeamId = null;
+
+    [
+        TEAM_KEY,
+        PLAYER_KEY,
+        FIELD_LAYOUT_KEY,
+        ...updates.map(item => item.key)
+    ].forEach(key => {
+        window.dispatchEvent(new CustomEvent(
+            "matchcraft:datachange",
+            { detail: { key } }
+        ));
+    });
+
+    showNotice("Team deleted. Player profiles have been preserved.");
+    renderTeams();
+    updateStats();
+}
+
+    function deletePlayer(playerId) {
+    const player = players.find(item =>
+        sameId(item.id, playerId)
+    );
+
+    if (!player) return;
+
+    const confirmed = window.confirm(
+        `Permanently delete ${getPlayerName(player)} and their ` +
+        `player-specific records? Team and tournament data will remain.`
+    );
+
+    if (!confirmed) return;
+
+    const id = String(playerId);
+
+    const playerRecordKeys = [
+        "matchcraft_cricket_player_statistics",
+        "matchcraft_cricket_player_stats",
+        "matchcraft_cricket_player_awards",
+        "matchcraft_cricket_player_records",
+        "matchcraft_player_statistics",
+        "matchcraft_player_stats"
+    ];
+
+    function belongsToPlayer(record) {
+        if (!record || typeof record !== "object") return false;
+
+        return ["playerId", "player_id"].some(field =>
+            record[field] != null &&
+            String(record[field]) === id
+        );
+    }
+
+    const updates = [];
+
+    playerRecordKeys.forEach(key => {
+        const raw = localStorage.getItem(key);
+        if (raw === null) return;
+
+        try {
+            const original = JSON.parse(raw);
+            let cleaned = original;
+
+            if (Array.isArray(original)) {
+                cleaned = original.filter(
+                    record => !belongsToPlayer(record)
+                );
+            } else if (original && typeof original === "object") {
+                cleaned = { ...original };
+
+                Object.keys(cleaned).forEach(field => {
+                    if (Array.isArray(cleaned[field])) {
+                        cleaned[field] = cleaned[field].filter(
+                            record => !belongsToPlayer(record)
+                        );
+                    } else if (belongsToPlayer(cleaned[field])) {
+                        delete cleaned[field];
+                    }
+                });
+
+                if (belongsToPlayer(original)) {
+                    cleaned = null;
+                }
+            }
+
+            if (JSON.stringify(cleaned) !== JSON.stringify(original)) {
+                updates.push({
+                    key,
+                    value: JSON.stringify(cleaned)
+                });
+            }
+        } catch (error) {
+            console.warn("Skipped unreadable player data:", key, error);
+        }
+    });
+
+    const updatedPlayers = players.filter(item =>
+        !sameId(item.id, playerId)
+    );
+
+    // Remove this player's saved field assignments.
+    const nextLayouts = readObject(FIELD_LAYOUT_KEY);
+
+    Object.keys(nextLayouts).forEach(teamKey => {
+        Object.keys(nextLayouts[teamKey] || {}).forEach(format => {
+            const positions = nextLayouts[teamKey][format];
+
+            if (!Array.isArray(positions)) return;
+
+            nextLayouts[teamKey][format] = positions.map(position => ({
+                ...position,
+                playerId: sameId(position.playerId, playerId)
+                    ? ""
+                    : position.playerId
+            }));
+        });
+    });
+
+    const snapshots = [
+        PLAYER_KEY,
+        FIELD_LAYOUT_KEY,
+        ...updates.map(item => item.key)
+    ].map(key => ({
+        key,
+        value: localStorage.getItem(key)
+    }));
+
+    try {
+        localStorage.setItem(PLAYER_KEY, JSON.stringify(updatedPlayers));
+        localStorage.setItem(FIELD_LAYOUT_KEY, JSON.stringify(nextLayouts));
+
+        updates.forEach(item => {
+            localStorage.setItem(item.key, item.value);
+        });
+    } catch (error) {
+        console.error("Player deletion failed:", error);
+
+        snapshots.forEach(item => {
+            try {
+                if (item.value === null) {
+                    localStorage.removeItem(item.key);
+                } else {
+                    localStorage.setItem(item.key, item.value);
+                }
+            } catch (_) {}
+        });
+
+        syncData();
+        showNotice("Player data সেভ করা যায়নি।");
+        return;
+    }
+
+    players = updatedPlayers;
+    fieldLayouts = nextLayouts;
+
+    [
+        PLAYER_KEY,
+        FIELD_LAYOUT_KEY,
+        ...updates.map(item => item.key)
+    ].forEach(key => {
+        window.dispatchEvent(new CustomEvent(
+            "matchcraft:datachange",
+            { detail: { key } }
+        ));
+    });
+
+    if (activeTeamId) {
+        renderSquad(activeTeamId);
+    } else {
+        renderTeams();
+    }
+
+    updateStats();
+    showNotice("Player profile and recognized personal records deleted.");
+}
 
     function togglePlayerFlag(playerId, flag) {
         const player = players.find(item => sameId(item.id, playerId));
