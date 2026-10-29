@@ -892,3 +892,313 @@
         border-color: #ddd !important;
     }
 }
+
+/* =========================================================
+   MATCHCRAFT CRICKET — QR RESULT SHARING
+========================================================= */
+
+.award-qr-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    gap: 24px;
+    padding: 24px;
+    border: 1px solid rgba(139, 131, 255, 0.25);
+    border-radius: 18px;
+    background: linear-gradient(
+        145deg,
+        rgba(101, 88, 232, 0.10),
+        rgba(20, 24, 42, 0.75)
+    );
+}
+
+.award-qr-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    min-width: 0;
+}
+
+.award-qr-controls label,
+.award-qr-result label {
+    color: var(--award-text, #f1f2ff);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.award-qr-controls select,
+.award-qr-result input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 12px 13px;
+    border: 1px solid rgba(139, 131, 255, 0.35);
+    border-radius: 10px;
+    outline: none;
+    background: #171a2c;
+    color: #f4f3ff;
+    font: inherit;
+}
+
+.award-qr-controls select:focus,
+.award-qr-result input:focus {
+    border-color: #a69bff;
+    box-shadow: 0 0 0 3px rgba(139, 131, 255, 0.12);
+}
+
+.award-qr-generate,
+.award-qr-actions button,
+#awardQrBackToStatistics {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 10px 15px;
+    border: 1px solid rgba(163, 151, 255, 0.4);
+    border-radius: 10px;
+    background: linear-gradient(135deg, #7465ed, #5546c8);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.award-qr-generate:hover,
+.award-qr-actions button:hover,
+#awardQrBackToStatistics:hover {
+    filter: brightness(1.12);
+    transform: translateY(-1px);
+}
+
+.award-qr-output {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-width: 0;
+    min-height: 260px;
+    padding: 18px;
+    border: 1px dashed rgba(139, 131, 255, 0.35);
+    border-radius: 15px;
+    background: rgba(8, 11, 24, 0.42);
+}
+
+.award-qr-empty,
+.award-qr-loading {
+    text-align: center;
+    color: var(--award-muted, #a8adc5);
+}
+
+.award-qr-empty i,
+.award-qr-loading i {
+    font-size: 32px;
+    color: #b5adff;
+}
+
+.award-qr-result {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    text-align: center;
+}
+
+.award-qr-image {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    max-width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    background: #fff;
+}
+
+.award-qr-image canvas,
+.award-qr-image img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+.award-qr-result h3 {
+    margin: 4px 0 0;
+    color: var(--award-text, #f1f2ff);
+    overflow-wrap: anywhere;
+}
+
+.award-qr-result p,
+.award-qr-note {
+    margin: 0;
+    color: var(--award-muted, #a8adc5);
+    font-size: 12px;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+}
+
+.award-qr-result input {
+    font-size: 12px;
+}
+
+.award-qr-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 9px;
+    width: 100%;
+}
+
+.award-qr-actions button {
+    flex: 1 1 100px;
+}
+
+.award-qr-error {
+    color: #ff9d9d;
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+/* Shared result page */
+
+.award-shared-result {
+    width: min(100% - 24px, 760px);
+    margin: 24px auto;
+    padding: clamp(18px, 4vw, 32px);
+    box-sizing: border-box;
+    border: 1px solid rgba(139, 131, 255, 0.3);
+    border-radius: 20px;
+    background: linear-gradient(145deg, #191d33, #101322);
+    color: #f3f3ff;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+}
+
+.award-shared-topline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #b8adff;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+}
+
+.award-shared-result > h2 {
+    margin: 16px 0 22px;
+    font-size: clamp(20px, 4vw, 28px);
+    overflow-wrap: anywhere;
+}
+
+.award-shared-teams {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.award-shared-teams > div {
+    padding: 15px 8px;
+    border: 1px solid rgba(139, 131, 255, 0.25);
+    border-radius: 12px;
+    background: rgba(139, 131, 255, 0.08);
+    font-weight: 800;
+    overflow-wrap: anywhere;
+}
+
+.award-shared-teams > span {
+    color: #b8adff;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.award-shared-innings {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px 12px;
+    margin-top: 10px;
+    padding: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.award-shared-innings span {
+    overflow-wrap: anywhere;
+}
+
+.award-shared-innings strong {
+    text-align: right;
+    color: #c7beff;
+}
+
+.award-shared-innings small {
+    grid-column: 1 / -1;
+    color: #a8adc5;
+}
+
+.award-shared-result-text {
+    margin-top: 18px;
+    padding: 17px;
+    border-radius: 12px;
+    background: rgba(66, 180, 125, 0.09);
+    border: 1px solid rgba(66, 180, 125, 0.25);
+}
+
+.award-shared-result-text > span {
+    display: block;
+    margin-bottom: 8px;
+    color: #a8adc5;
+    font-size: 12px;
+}
+
+.award-shared-result-text > strong {
+    display: block;
+    overflow-wrap: anywhere;
+    line-height: 1.7;
+}
+
+.award-shared-result-text p,
+.award-shared-date {
+    color: #b9c1d8;
+    font-size: 13px;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+}
+
+.award-shared-result #awardQrBackToStatistics {
+    margin-top: 14px;
+}
+
+@media (max-width: 600px) {
+    .award-qr-card {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+        padding: 15px;
+    }
+
+    .award-qr-output {
+        padding: 12px;
+    }
+
+    .award-qr-actions {
+        flex-direction: column;
+    }
+
+    .award-qr-actions button {
+        width: 100%;
+        flex-basis: auto;
+    }
+
+    .award-shared-result {
+        width: calc(100% - 16px);
+        margin: 12px auto;
+        padding: 16px;
+    }
+
+    .award-shared-teams {
+        gap: 6px;
+    }
+}

@@ -1108,17 +1108,469 @@ function renderManualAwards(batting, bowling, players) {
     `;
 }
 
+/* =========================================================
+   MATCHCRAFT CRICKET — QR RESULT SHARING
+   Add these functions before renderQRPlaceholder()
+========================================================= */
+
+const QR_RESULT_SITE =
+    "https://cricket-tournament-analisis-by-rabbik.netlify.app/";
+
+function qrEscapeHTML(value) {
+    return String(value ?? "").replace(/[&<>"']/g, ch => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    })[ch]);
+}
+
+function qrEncodeResult(result) {
+    const bytes = new TextEncoder().encode(JSON.stringify(result));
+    let binary = "";
+
+    bytes.forEach(byte => {
+        binary += String.fromCharCode(byte);
+    });
+
+    return btoa(binary)
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/g, "");
+}
+
+function qrDecodeResult(encoded) {
+    try {
+        const base64 = encoded
+            .replace(/-/g, "+")
+            .replace(/_/g, "/");
+
+        const binary = atob(base64);
+        const bytes = Uint8Array.from(binary, ch => ch.charCodeAt(0));
+
+        return JSON.parse(new TextDecoder().decode(bytes));
+    } catch {
+        return null;
+    }
+}
+
+function qrGetMatchId(match) {
+    return String(
+        match?.id ??
+        match?._id ??
+        match?.matchId ??
+        match?.fixtureId ??
+        ""
+    );
+}
+
+function qrGetMatchTeams(match) {
+    const live = match?.liveData || {};
+    const innings = Array.isArray(live.innings) ? live.innings : [];
+
+    const teamA =
+        match?.teamAName ||
+        match?.team1Name ||
+        match?.homeTeamName ||
+        match?.teamA?.name ||
+        match?.team1?.name ||
+        match?.team1 ||
+        match?.teamA ||
+        live.teamAName ||
+        "Team 1";
+
+    const teamB =
+        match?.teamBName ||
+        match?.team2Name ||
+        match?.awayTeamName ||
+        match?.teamB?.name ||
+        match?.team2?.name ||
+        match?.team2 ||
+        match?.teamB ||
+        live.teamBName ||
+        "Team 2";
+
+    return {
+        teamA: typeof teamA === "object" ? (teamA.name || "Team 1") : String(teamA),
+        teamB: typeof teamB === "object" ? (teamB.name || "Team 2") : String(teamB),
+        innings
+    };
+}
+
+function qrGetInningsSummary(innings) {
+    return (Array.isArray(innings) ? innings : []).map((inn, index) => {
+        const battingTeam =
+            inn?.battingTeamName ||
+            inn?.battingTeam ||
+            inn?.teamName ||
+            `Innings ${index + 1}`;
+
+        const runs = Number(inn?.runs ?? inn?.score ?? 0);
+        const wickets = Number(inn?.wickets ?? 0);
+        const balls = Number(inn?.legalBalls ?? inn?.balls ?? 0);
+        const oversLimit = Number(inn?.oversLimit ?? inn?.overs ?? 0);
+
+        const overs = oversLimit > 0
+            ? `${Math.floor(balls / 6)}.${balls % 6}`
+            : `${Math.floor(balls / 6)}.${balls % 6}`;
+
+        return {
+            battingTeam: typeof battingTeam === "object"
+                ? (battingTeam.name || `Innings ${index + 1}`)
+                : String(battingTeam),
+            runs,
+            wickets,
+            overs
+        };
+    });
+}
+
+function qrMakeResultPayload(match) {
+    const live = match?.liveData || {};
+    const teams = qrGetMatchTeams(match);
+
+    const tournament =
+        match?.tournamentName ||
+        match?.tournament?.name ||
+        match?.competitionName ||
+        "Cricket Tournament";
+
+    const resultText =
+        live.result?.text ||
+        live.result?.summary ||
+        (typeof live.result === "string" ? live.result : "") ||
+        match?.result?.text ||
+        match?.result?.summary ||
+        (typeof match?.result === "string" ? match.result : "") ||
+        match?.resultText ||
+        match?.resultSummary ||
+        "Match completed";
+
+    const winner =
+        live.winnerTeamName ||
+        match?.winnerTeamName ||
+        match?.winner ||
+        "";
+
+    const score = qrGetInningsSummary(teams.innings);
+
+    return {
+        version: 1,
+        matchId: qrGetMatchId(match),
+        tournament: String(tournament),
+        teamA: teams.teamA,
+        teamB: teams.teamB,
+        result: String(resultText),
+        winner: typeof winner === "object" ? (winner.name || "") : String(winner),
+        innings: score,
+        date: String(match?.date || match?.matchDate || match?.scheduledAt || ""),
+        sharedAt: new Date().toISOString()
+    };
+}
+
+function qrIsCompleted(match) {
+    const status = String(
+        match?.status ||
+        match?.liveData?.phase ||
+        match?.liveData?.status ||
+        ""
+    ).toLowerCase();
+
+    return Boolean(
+        match?.completed ||
+        match?.liveData?.completed ||
+        status === "completed" ||
+        status === "complete" ||
+        status === "finished"
+    );
+}
+
+function qrGetCompletedMatches() {
+    /*
+      Uses the same storage keys as the cricket Match Center.
+      Reads both matches and fixtures, avoiding duplicate IDs.
+    */
+    const keys = [
+        "matchcraft_cricket_matches",
+        "cricket_matches",
+        "matches",
+        "matchcraft_cricket_fixtures",
+        "cricket_fixtures",
+        "fixtures"
+    ];
+
+    const all = [];
+
+    keys.forEach(key => {
+        try {
+            const raw = localStorage.getItem(key);
+            if (!raw) return;
+
+            const parsed = JSON.parse(raw);
+            const rows = Array.isArray(parsed)
+                ? parsed
+                : Array.isArray(parsed?.data)
+                    ? parsed.data
+                    : Array.isArray(parsed?.items)
+                        ? parsed.items
+                        : [];
+
+            all.push(...rows);
+        } catch (error) {
+            console.warn("QR result: unable to read", key, error);
+        }
+    });
+
+    const seen = new Set();
+
+    return all.filter(match => {
+        if (!match || !qrIsCompleted(match)) return false;
+
+        const id = qrGetMatchId(match);
+        const uniqueKey = id || JSON.stringify([
+            match?.teamAName,
+            match?.teamBName,
+            match?.date,
+            match?.result
+        ]);
+
+        if (seen.has(uniqueKey)) return false;
+        seen.add(uniqueKey);
+
+        return true;
+    });
+}
+
+function qrResultURL(payload) {
+    const url = new URL(QR_RESULT_SITE);
+    url.searchParams.set("page", "statistics");
+    url.searchParams.set("result", qrEncodeResult(payload));
+    return url.toString();
+}
+
 function renderQRPlaceholder() {
+    const matches = qrGetCompletedMatches();
+
+    if (!matches.length) {
+        return `
+            <section class="award-section">
+                ${sectionHeading(
+                    "Match Result QR Code",
+                    "Create a shareable QR code for a completed match.",
+                    "RESULT SHARING"
+                )}
+                <div class="award-qr-placeholder">
+                    <i class="fa-solid fa-qrcode"></i>
+                    <div>
+                        <h3>No completed matches found</h3>
+                        <p>Complete a match in Match Center first. Then return here to create its QR Code.</p>
+                    </div>
+                </div>
+            </section>
+        `;
+    }
+
     return `
-        <section class="award-section">
-            ${sectionHeading("Match Result QR Code", "Reserved for future public result sharing.", "COMING LATER")}
-            <div class="award-qr-placeholder">
-                <i class="fa-solid fa-qrcode"></i>
-                <div><h3>QR Code result sharing</h3>
-                <p>This placeholder does not generate a scannable result link yet. Public sharing will require a public result page or an encoded result payload.</p></div>
+        <section class="award-section award-qr-section">
+            ${sectionHeading(
+                "Match Result QR Code",
+                "Share a snapshot of a completed match with another phone.",
+                "RESULT SHARING"
+            )}
+
+            <div class="award-qr-card">
+                <div class="award-qr-controls">
+                    <label for="awardQrMatchSelect">Select completed match</label>
+                    <select id="awardQrMatchSelect">
+                        ${matches.map((match, index) => {
+                            const teams = qrGetMatchTeams(match);
+                            const label = `${teams.teamA} vs ${teams.teamB}`;
+                            return `
+                                <option value="${qrEscapeHTML(qrGetMatchId(match))}"
+                                    ${index === 0 ? "selected" : ""}>
+                                    ${qrEscapeHTML(label)}
+                                </option>
+                            `;
+                        }).join("")}
+                    </select>
+
+                    <button type="button" class="award-qr-generate" id="awardQrGenerate">
+                        <i class="fa-solid fa-qrcode"></i>
+                        Generate QR Code
+                    </button>
+                </div>
+
+                <div class="award-qr-output" id="awardQrOutput" aria-live="polite">
+                    <div class="award-qr-empty">
+                        <i class="fa-solid fa-qrcode"></i>
+                        <p>Select a match and press Generate QR Code.</p>
+                    </div>
+                </div>
             </div>
         </section>
     `;
+}
+
+/* Load the QR generator library only when needed. */
+function qrLoadLibrary() {
+    if (window.QRCode) return Promise.resolve();
+
+    if (window.__matchcraftQRCodeLoading) {
+        return window.__matchcraftQRCodeLoading;
+    }
+
+    window.__matchcraftQRCodeLoading = new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src =
+            "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
+        script.onload = () => window.QRCode
+            ? resolve()
+            : reject(new Error("QR library loaded, but QRCode is unavailable."));
+        script.onerror = () => reject(new Error("Unable to load QR generator."));
+        document.head.appendChild(script);
+    });
+
+    return window.__matchcraftQRCodeLoading;
+}
+
+async function qrGenerateSelectedMatch() {
+    const select = document.getElementById("awardQrMatchSelect");
+    const output = document.getElementById("awardQrOutput");
+
+    if (!select || !output) return;
+
+    const selectedId = select.value;
+    const match = qrGetCompletedMatches().find(item =>
+        qrGetMatchId(item) === selectedId
+    );
+
+    if (!match) {
+        output.innerHTML = `<p class="award-qr-error">Selected match could not be found. Refresh the page and try again.</p>`;
+        return;
+    }
+
+    const payload = qrMakeResultPayload(match);
+    const link = qrResultURL(payload);
+
+    output.innerHTML = `
+        <div class="award-qr-loading">
+            <i class="fa-solid fa-spinner fa-spin"></i>
+            <p>Generating QR Code…</p>
+        </div>
+    `;
+
+    try {
+        await qrLoadLibrary();
+
+        output.innerHTML = `
+            <div class="award-qr-result">
+                <div class="award-qr-image" id="awardQrImage"></div>
+                <h3>${qrEscapeHTML(payload.teamA)} vs ${qrEscapeHTML(payload.teamB)}</h3>
+                <p>${qrEscapeHTML(payload.result)}</p>
+                <label for="awardQrLink">Shareable result link</label>
+                <input id="awardQrLink" type="url" readonly value="${qrEscapeHTML(link)}">
+                <div class="award-qr-actions">
+                    <button type="button" id="awardQrCopy">
+                        <i class="fa-regular fa-copy"></i> Copy Link
+                    </button>
+                    <button type="button" id="awardQrDownload">
+                        <i class="fa-solid fa-download"></i> Download QR
+                    </button>
+                    <button type="button" id="awardQrPrint">
+                        <i class="fa-solid fa-print"></i> Print QR
+                    </button>
+                </div>
+                <p class="award-qr-note">
+                    This QR contains a snapshot of the result at the time it was generated.
+                </p>
+            </div>
+        `;
+
+        const qrBox = document.getElementById("awardQrImage");
+
+        new QRCode(qrBox, {
+            text: link,
+            width: 240,
+            height: 240,
+            correctLevel: QRCode.CorrectLevel.M
+        });
+    } catch (error) {
+        console.error(error);
+        output.innerHTML = `
+            <p class="award-qr-error">
+                QR Code তৈরি করা যায়নি। ইন্টারনেট সংযোগ পরীক্ষা করে আবার চেষ্টা করো।
+            </p>
+        `;
+    }
+}
+
+function qrRenderSharedResult() {
+    const params = new URLSearchParams(window.location.search);
+    const encoded = params.get("result");
+
+    if (!encoded) return false;
+
+    const result = qrDecodeResult(encoded);
+    const root = document.getElementById("statistics");
+
+    if (!root) return false;
+
+    if (!result || result.version !== 1) {
+        root.innerHTML = `
+            <div class="award-shared-result">
+                <h2>Shared Match Result</h2>
+                <p>The result link is invalid or incomplete.</p>
+            </div>
+        `;
+        return true;
+    }
+
+    const inningsHTML = (result.innings || []).map((inn, index) => `
+        <div class="award-shared-innings">
+            <span>${qrEscapeHTML(inn.battingTeam || `Innings ${index + 1}`)}</span>
+            <strong>${Number(inn.runs || 0)}/${Number(inn.wickets || 0)}</strong>
+            <small>Overs: ${qrEscapeHTML(inn.overs || "0.0")}</small>
+        </div>
+    `).join("");
+
+    root.innerHTML = `
+        <div class="award-shared-result">
+            <div class="award-shared-topline">
+                <i class="fa-solid fa-trophy"></i>
+                <span>SHARED MATCH RESULT</span>
+            </div>
+            <h2>${qrEscapeHTML(result.tournament || "Cricket Tournament")}</h2>
+            <div class="award-shared-teams">
+                <div>${qrEscapeHTML(result.teamA || "Team 1")}</div>
+                <span>VS</span>
+                <div>${qrEscapeHTML(result.teamB || "Team 2")}</div>
+            </div>
+            ${inningsHTML}
+            <div class="award-shared-result-text">
+                <span>Match Result</span>
+                <strong>${qrEscapeHTML(result.result || "Match completed")}</strong>
+                ${result.winner ? `<p>Winner: ${qrEscapeHTML(result.winner)}</p>` : ""}
+            </div>
+            ${result.date ? `<p class="award-shared-date">Match date: ${qrEscapeHTML(result.date)}</p>` : ""}
+            <button type="button" id="awardQrBackToStatistics">
+                <i class="fa-solid fa-arrow-left"></i> Back to Statistics & Awards
+            </button>
+        </div>
+    `;
+
+    return true;
+}
+
+function qrOpenStatisticsPage() {
+    const link = document.querySelector('[data-page="statistics"]');
+
+    if (link) {
+        link.click();
+    } else {
+        const root = document.getElementById("statistics");
+        if (root) root.hidden = false;
+    }
 }
 
 function render() {
@@ -1330,6 +1782,133 @@ function init() {
 
     render();
     console.info("[MATCHCRAFT Awards] Statistics & Awards initialized.");
+}
+
+// QR Result Sharing: generate, copy, download and print.
+const qrRoot = document.getElementById("statistics");
+
+if (qrRoot && !qrRoot.dataset.qrEventsAttached) {
+    qrRoot.dataset.qrEventsAttached = "true";
+
+    qrRoot.addEventListener("click", async event => {
+        const button = event.target.closest("button");
+        if (!button) return;
+
+        if (button.id === "awardQrGenerate") {
+            await qrGenerateSelectedMatch();
+        }
+
+        if (button.id === "awardQrCopy") {
+            const input = document.getElementById("awardQrLink");
+            if (!input) return;
+
+            try {
+                await navigator.clipboard.writeText(input.value);
+                button.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+            } catch {
+                input.focus();
+                input.select();
+
+                try {
+                    document.execCommand("copy");
+                    button.textContent = "Copied!";
+                } catch {
+                    button.textContent = "Copy failed — select the link";
+                }
+            }
+        }
+
+        if (button.id === "awardQrDownload") {
+            const canvas = document.querySelector("#awardQrImage canvas");
+            const image = document.querySelector("#awardQrImage img");
+
+            let dataURL = "";
+
+            if (canvas) {
+                dataURL = canvas.toDataURL("image/png");
+            } else if (image?.src) {
+                dataURL = image.src;
+            }
+
+            if (!dataURL) {
+                alert("QR Code তৈরি হওয়ার পর আবার চেষ্টা করো।");
+                return;
+            }
+
+            const downloadLink = document.createElement("a");
+            downloadLink.href = dataURL;
+            downloadLink.download = "matchcraft-match-result-qr.png";
+            downloadLink.click();
+        }
+
+        if (button.id === "awardQrPrint") {
+            const canvas = document.querySelector("#awardQrImage canvas");
+            const image = document.querySelector("#awardQrImage img");
+            const qrImage = canvas
+                ? canvas.toDataURL("image/png")
+                : image?.src;
+
+            if (!qrImage) return;
+
+            const printWindow = window.open("", "_blank");
+
+            if (!printWindow) {
+                alert("Print করার জন্য ব্রাউজারে pop-up অনুমতি দাও।");
+                return;
+            }
+
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>MatchCraft Match Result QR</title>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            text-align: center;
+                            padding: 30px;
+                        }
+                        img { width: 260px; height: 260px; }
+                        p { overflow-wrap: anywhere; }
+                    </style>
+                </head>
+                <body>
+                    <h2>MatchCraft — Match Result</h2>
+                    <img src="${qrImage}" alt="Match result QR Code">
+                    <p>Scan to view the shared match result.</p>
+                    <script>
+                        window.onload = () => {
+                            window.print();
+                        };
+                    <\/script>
+                </body>
+                </html>
+            `);
+
+            printWindow.document.close();
+        }
+
+        if (button.id === "awardQrBackToStatistics") {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("result");
+            url.searchParams.set("page", "statistics");
+            window.location.href = url.toString();
+        }
+    });
+}
+
+// If a QR link contains a shared result, open Statistics & Awards
+// and show that result instead of relying on this device's LocalStorage.
+const sharedResultParams = new URLSearchParams(window.location.search);
+
+if (sharedResultParams.has("result")) {
+    qrOpenStatisticsPage();
+
+    // Wait until the Statistics page has been rendered.
+    requestAnimationFrame(() => {
+        qrRenderSharedResult();
+    });
 }
 
 if (document.readyState === "loading") {
