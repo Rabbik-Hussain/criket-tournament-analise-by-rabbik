@@ -1202,3 +1202,520 @@
         gap: 6px;
     }
 }
+
+/* =========================================================
+   TOURNAMENT HIGHLIGHTS — PREMIUM DESIGN
+========================================================= */
+
+.statistics-awards-page .award-highlights-section {
+    margin-top: 24px;
+}
+
+.statistics-awards-page .award-highlights-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.statistics-awards-page .award-highlights-heading h2 {
+    margin: 5px 0 6px;
+    color: var(--award-text, #172033);
+    font-size: 22px;
+    font-weight: 800;
+}
+
+.statistics-awards-page .award-highlights-heading h2 i {
+    color: #d6a32b;
+    margin-right: 7px;
+}
+
+.statistics-awards-page .award-highlights-heading p {
+    margin: 0;
+    color: var(--award-muted, #778197);
+    font-size: 13px;
+}
+
+.statistics-awards-page .award-highlights-eyebrow {
+    color: #c39228;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 2px;
+}
+
+.statistics-awards-page .award-highlights-tag {
+    padding: 8px 13px;
+    border: 1px solid rgba(214, 163, 43, .3);
+    border-radius: 30px;
+    background: rgba(214, 163, 43, .09);
+    color: #b8871e;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    white-space: nowrap;
+}
+
+.statistics-awards-page .award-highlights-grid {
+    display: grid;
+    grid-template-columns: 35fr 30fr 35fr;
+    gap: 16px;
+    width: 100%;
+}
+
+.statistics-awards-page .award-highlight-card {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    min-height: 270px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 25px 16px 20px;
+    border: 1px solid rgba(148, 163, 184, .2);
+    border-radius: 18px;
+    text-align: center;
+    transition:
+        transform .3s ease,
+        box-shadow .3s ease,
+        border-color .3s ease;
+}
+
+.statistics-awards-page .award-highlight-card::before {
+    position: absolute;
+    top: -65px;
+    right: -55px;
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .12);
+    content: "";
+    pointer-events: none;
+}
+
+.statistics-awards-page .award-highlight-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 15px 32px rgba(15, 23, 42, .12);
+}
+
+.statistics-awards-page .award-highlight-champion {
+    border-color: rgba(214, 163, 43, .35);
+    background: linear-gradient(145deg, #fff8e6, #f8e6b5);
+    color: #74500d;
+}
+
+.statistics-awards-page .award-highlight-champion:hover {
+    border-color: #d6a32b;
+}
+
+.statistics-awards-page .award-highlight-mom {
+    border-color: rgba(87, 139, 207, .3);
+    background: linear-gradient(145deg, #edf6ff, #d9eaff);
+    color: #194b7c;
+}
+
+.statistics-awards-page .award-highlight-mom:hover {
+    border-color: #5790ce;
+}
+
+.statistics-awards-page .award-highlight-runner {
+    border-color: rgba(148, 163, 184, .4);
+    background: linear-gradient(145deg, #f4f6fa, #e0e6ef);
+    color: #48566b;
+}
+
+.statistics-awards-page .award-highlight-runner:hover {
+    border-color: #9aa9bc;
+}
+
+.statistics-awards-page .award-highlight-icon {
+    position: relative;
+    display: grid;
+    width: 65px;
+    height: 65px;
+    place-items: center;
+    margin-bottom: 13px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .65);
+    box-shadow: 0 7px 18px rgba(0, 0, 0, .08);
+}
+
+.statistics-awards-page .award-highlight-icon > i {
+    font-size: 29px;
+    color: #c18a1d;
+}
+
+.statistics-awards-page .award-highlight-mom .award-highlight-icon > i {
+    color: #397cb9;
+}
+
+.statistics-awards-page .award-highlight-runner .award-highlight-icon > i {
+    color: #78889c;
+}
+
+.statistics-awards-page .award-highlight-sparkle {
+    position: absolute;
+    top: 2px;
+    right: 1px;
+    color: #e6b83e;
+    font-size: 20px;
+    animation: awardSparkle 2s ease-in-out infinite;
+}
+
+.statistics-awards-page .award-highlight-wave {
+    position: absolute;
+    right: -12px;
+    bottom: -5px;
+    font-size: 23px;
+    transform-origin: 70% 80%;
+    animation: awardWave 2s ease-in-out infinite;
+}
+
+.statistics-awards-page .award-highlight-label {
+    margin-bottom: 15px;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1.4px;
+}
+
+.statistics-awards-page .award-highlight-person {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 9px;
+}
+
+.statistics-awards-page .award-highlight-avatar {
+    display: grid;
+    width: 83px;
+    height: 83px;
+    flex-shrink: 0;
+    place-items: center;
+    overflow: hidden;
+    border: 4px solid rgba(255, 255, 255, .85);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .7);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, .12);
+}
+
+.statistics-awards-page .award-highlight-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.statistics-awards-page .award-highlight-fallback {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    place-items: center;
+    font-size: 35px;
+}
+
+.statistics-awards-page .award-highlight-player-avatar .award-highlight-fallback {
+    color: #397cb9;
+    font-size: 30px;
+}
+
+.statistics-awards-page .award-highlight-person strong {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    font-size: 16px;
+    font-weight: 900;
+}
+
+.statistics-awards-page .award-highlight-person small {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    font-size: 11px;
+    opacity: .8;
+}
+
+.statistics-awards-page .award-highlight-empty {
+    display: flex;
+    min-height: 110px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.statistics-awards-page .award-highlight-empty > i {
+    font-size: 27px;
+    opacity: .55;
+}
+
+.statistics-awards-page .award-highlight-empty strong {
+    font-size: 14px;
+}
+
+.statistics-awards-page .award-highlight-empty span {
+    font-size: 11px;
+    opacity: .7;
+}
+
+.statistics-awards-page .award-highlight-bottom {
+    margin-top: auto;
+    padding-top: 17px;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    opacity: .65;
+}
+
+@keyframes awardWave {
+    0%, 100% {
+        transform: rotate(0deg);
+    }
+    25% {
+        transform: rotate(22deg);
+    }
+    50% {
+        transform: rotate(-10deg);
+    }
+    75% {
+        transform: rotate(18deg);
+    }
+}
+
+@keyframes awardSparkle {
+    0%, 100% {
+        opacity: .5;
+        transform: scale(.8);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.2);
+    }
+}
+
+/* Stack the three cards below 680px */
+@media (max-width: 680px) {
+    .statistics-awards-page .award-highlights-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 13px;
+    }
+
+    .statistics-awards-page .award-highlight-card {
+        min-height: 245px;
+    }
+
+    .statistics-awards-page .award-highlight-avatar {
+        width: 78px;
+        height: 78px;
+    }
+}
+
+@media (max-width: 400px) {
+    .statistics-awards-page .award-highlights-heading {
+        align-items: flex-start;
+    }
+
+    .statistics-awards-page .award-highlights-heading h2 {
+        font-size: 19px;
+    }
+
+    .statistics-awards-page .award-highlights-tag {
+        padding: 6px 9px;
+        font-size: 9px;
+    }
+
+    .statistics-awards-page .award-highlight-card {
+        min-height: 230px;
+        padding: 22px 12px 18px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .statistics-awards-page .award-highlight-card,
+    .statistics-awards-page .award-highlight-wave,
+    .statistics-awards-page .award-highlight-sparkle {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+/* =========================================================
+   TOURNAMENT HIGHLIGHTS — DARK PREMIUM HOVER UPDATE
+========================================================= */
+
+/* Normal card colors: slightly darker and softer */
+.statistics-awards-page .award-highlight-champion {
+    background: linear-gradient(145deg, #e9d6a3, #d8bd7d);
+    border: 1px solid rgba(174, 128, 32, .45);
+    color: #60440d;
+}
+
+.statistics-awards-page .award-highlight-mom {
+    background: linear-gradient(145deg, #c7d9ed, #a9c4e2);
+    border: 1px solid rgba(65, 115, 170, .4);
+    color: #173e66;
+}
+
+.statistics-awards-page .award-highlight-runner {
+    background: linear-gradient(145deg, #d5dbe4, #bfc9d7);
+    border: 1px solid rgba(100, 116, 139, .45);
+    color: #37465b;
+}
+
+/* Smooth premium hover */
+.statistics-awards-page .award-highlight-card {
+    transition:
+        transform .4s cubic-bezier(.2,.8,.2,1),
+        background .4s ease,
+        box-shadow .4s ease,
+        border-color .4s ease;
+    transform-origin: center;
+}
+
+.statistics-awards-page .award-highlight-champion:hover {
+    background: linear-gradient(145deg, #fff8e6, #f8e6b5);
+    border: 2px solid #d6a32b;
+    color: #b17b0b;
+    box-shadow: 0 16px 35px rgba(166, 119, 20, .22);
+    transform: translateY(-8px) scale(1.015);
+}
+
+.statistics-awards-page .award-highlight-mom:hover {
+    background: linear-gradient(145deg, #edf6ff, #d9eaff);
+    border: 2px solid #d6a32b;
+    color: #b17b0b;
+    box-shadow: 0 16px 35px rgba(54, 112, 174, .2);
+    transform: translateY(-8px) scale(1.015);
+}
+
+.statistics-awards-page .award-highlight-runner:hover {
+    background: linear-gradient(145deg, #f4f6fa, #e0e6ef);
+    border: 2px solid #d6a32b;
+    color: #b17b0b;
+    box-shadow: 0 16px 35px rgba(100, 116, 139, .2);
+    transform: translateY(-8px) scale(1.015);
+}
+
+/* Make heading and labels bigger and bold on hover */
+.statistics-awards-page .award-highlight-label {
+    font-size: 11px;
+    font-weight: 900;
+    transition: font-size .3s ease, color .3s ease;
+}
+
+.statistics-awards-page .award-highlight-bottom {
+    font-size: 11px;
+    font-weight: 900;
+    transition: font-size .3s ease, color .3s ease;
+}
+
+.statistics-awards-page .award-highlight-card:hover .award-highlight-label,
+.statistics-awards-page .award-highlight-card:hover .award-highlight-bottom {
+    color: #a9780d;
+    font-size: 13px;
+    font-weight: 950;
+}
+
+/* Profile becomes larger on hover */
+.statistics-awards-page .award-highlight-avatar {
+    border: 4px solid rgba(255, 255, 255, .9);
+    transition:
+        transform .4s cubic-bezier(.2,.8,.2,1),
+        border-color .3s ease,
+        box-shadow .3s ease;
+}
+
+.statistics-awards-page .award-highlight-card:hover .award-highlight-avatar {
+    transform: scale(1.2);
+    border: 5px solid #d6a32b;
+    box-shadow: 0 0 0 5px rgba(214, 163, 43, .16),
+                0 10px 24px rgba(0, 0, 0, .18);
+}
+
+/* Profile names */
+.statistics-awards-page .award-highlight-person strong {
+    font-size: 17px;
+    font-weight: 900;
+    transition: font-size .3s ease, color .3s ease;
+}
+
+.statistics-awards-page .award-highlight-card:hover .award-highlight-person strong {
+    font-size: 20px;
+    font-weight: 950;
+    color: #a9780d;
+}
+
+.statistics-awards-page .award-highlight-person small {
+    font-weight: 700;
+    transition: color .3s ease, font-size .3s ease;
+}
+
+.statistics-awards-page .award-highlight-card:hover .award-highlight-person small {
+    color: #9a6b0b;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+/* Main icons */
+.statistics-awards-page .award-highlight-icon {
+    transition:
+        transform .4s ease,
+        box-shadow .4s ease;
+}
+
+.statistics-awards-page .award-highlight-card:hover .award-highlight-icon {
+    transform: scale(1.12) rotate(-4deg);
+    box-shadow: 0 9px 22px rgba(166, 119, 20, .2);
+}
+
+.statistics-awards-page .award-highlight-card:hover .award-highlight-icon > i {
+    color: #bd8b19;
+}
+
+/* Empty state text */
+.statistics-awards-page .award-highlight-card:hover .award-highlight-empty strong,
+.statistics-awards-page .award-highlight-card:hover .award-highlight-empty > i {
+    color: #a9780d;
+}
+
+/* Mobile: avoid excessive enlargement and overflow */
+@media (max-width: 680px) {
+    .statistics-awards-page .award-highlight-card:hover {
+        transform: translateY(-4px);
+    }
+
+    .statistics-awards-page .award-highlight-card:hover .award-highlight-avatar {
+        transform: scale(1.12);
+    }
+
+    .statistics-awards-page .award-highlight-card:hover .award-highlight-person strong {
+        font-size: 19px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .statistics-awards-page .award-highlight-card,
+    .statistics-awards-page .award-highlight-avatar,
+    .statistics-awards-page .award-highlight-icon,
+    .statistics-awards-page .award-highlight-person strong {
+        transition: none !important;
+    }
+}
+
+/* =========================================================
+   TOURNAMENT HIGHLIGHTS — FINAL NAME STYLE FIX
+========================================================= */
+
+/* Champion, Man of the Match & Runner-up names */
+.statistics-awards-page .award-highlight-person strong {
+    color: #000000 !important;
+    font-size: 25px !important;
+    font-weight: 900 !important;
+    line-height: 1.3;
+}
+
+/* Keep names black and 25px during hover */
+.statistics-awards-page .award-highlight-card:hover .award-highlight-person strong {
+    color: #000000 !important;
+    font-size: 25px !important;
+    font-weight: 900 !important;
+}

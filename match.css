@@ -833,3 +833,118 @@
     min-height: 42px;
   }
 }
+
+/* =========================================================
+   MATCHCRAFT CRICKET — SUPER OVER
+========================================================= */
+
+.mc-super-over {
+  animation: mcSuperOverFade .25s ease;
+}
+
+.mc-super-over-score {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 28px 16px;
+  margin-bottom: 16px;
+  text-align: center;
+  border: 1px solid rgba(251, 191, 36, .3);
+  border-radius: 17px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(251, 191, 36, .14), transparent 68%),
+    linear-gradient(140deg, #1c2a3c, #0b1525);
+}
+
+.mc-super-over-score > span {
+  color: #fde68a;
+  font-size: .9rem;
+  font-weight: 800;
+}
+
+.mc-super-over-score > strong {
+  font-size: clamp(3rem, 8vw, 5rem);
+  line-height: 1.05;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.mc-super-over-score > small {
+  color: var(--mc-muted);
+  font-size: .8rem;
+}
+
+.mc-super-over-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.mc-super-over-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--mc-border);
+  border-radius: 12px;
+  background: var(--mc-panel-soft);
+}
+
+.mc-super-over-summary strong {
+  overflow-wrap: anywhere;
+  font-size: .78rem;
+}
+
+.mc-super-over-summary span {
+  color: #bbf7d0;
+  font-size: 1.35rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.mc-super-over-players {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin: 14px 0;
+}
+
+.mc-super-over-players p {
+  min-width: 0;
+  margin: 0;
+  padding: 11px;
+  border: 1px solid var(--mc-border);
+  border-radius: 10px;
+  color: var(--mc-muted);
+  font-size: .75rem;
+  overflow-wrap: anywhere;
+}
+
+.mc-super-over-players strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--mc-text);
+}
+
+@keyframes mcSuperOverFade {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 520px) {
+  .mc-super-over-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mc-super-over-players {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -376,15 +376,158 @@
     };
   }
 
+  /* ==================== GROUP & KNOCKOUT HELPERS ==================== */
+
+  function tournamentStorageKey() {
+    for (const key of STORAGE.tournaments) {
+      if (parseStorage(key) !== null) return key;
+    }
+    return STORAGE.tournaments[0];
+  }
+
+  function saveTournamentRecord(updatedTournament) {
+    try {
+      const key = tournamentStorageKey();
+      const tournaments = readStorage(STORAGE.tournaments);
+      const id = idOf(updatedTournament);
+      const index = tournaments.findIndex(item => idOf(item) === id);
+
+      if (index < 0) return false;
+
+      tournaments[index] = updatedTournament;
+      localStorage.setItem(key, JSON.stringify(tournaments));
+      return true;
+    } catch (error) {
+      console.error("MATCHCRAFT: Tournament update failed.", error);
+      return false;
+    }
+  }
+
+  function groupAssignments(tournament) {
+    return tournament?.groupAssignments &&
+      typeof tournament.groupAssignments === "object"
+      ? tournament.groupAssignments
+      : {};
+  }
+
+  function teamGroup(team, tournament) {
+    const id = idOf(team);
+    const assignments = groupAssignments(tournament);
+
+    return String(
+      assignments[id] ||
+      first(team, ["group", "groupName", "groupLabel"], "")
+    ).trim();
+  }
+
+  function isGroupStageMatch(match) {
+    const round = String(first(match, [
+      "round", "stage", "roundName", "stageName", "matchType"
+    ], "")).toLowerCase();
+
+    return match?.groupStage === true ||
+      Boolean(match?.group || match?.groupName) ||
+      round.includes("group stage");
+  }
+
+  function isKnockoutMatch(match) {
+    if (!match || typeof match !== "object") {
+        return false;
+    }
+
+    // Group Stage কখনো Knockout হিসেবে গণ্য হবে না।
+    const stage = String(
+        match.bracketStage ??
+        match.stage ??
+        match.roundName ??
+        match.round ??
+        ""
+    ).trim().toLowerCase();
+
+    if (
+        match.groupStage === true ||
+        stage === "group" ||
+        stage.includes("group stage") ||
+        Boolean(match.groupName)
+    ) {
+        return false;
+    }
+
+    // স্পষ্ট Knockout flag।
+    if (match.knockoutStage === true) {
+        return true;
+    }
+
+    // null, undefined বা খালি string গ্রহণ করা যাবে না।
+    const roundIndex = match.knockoutRoundIndex;
+
+    if (
+        roundIndex !== null &&
+        roundIndex !== undefined &&
+        roundIndex !== "" &&
+        Number.isFinite(Number(roundIndex)) &&
+        Number(roundIndex) >= 0
+    ) {
+        return true;
+    }
+
+    // Knockout round-এর নাম।
+    if (
+        match.knockoutRound !== null &&
+        match.knockoutRound !== undefined &&
+        String(match.knockoutRound).trim() !== ""
+    ) {
+        return true;
+    }
+
+    return (
+        stage.includes("preliminary") ||
+        stage.includes("quarter") ||
+        stage.includes("semi") ||
+        stage.includes("final") ||
+        stage.includes("knockout") ||
+        stage.includes("eliminator") ||
+        stage.includes("qualifier")
+    );
+}
+
+  function tournamentMatches(matches, tournamentId) {
+    return matches.filter(match =>
+      tournamentIdOf(match) === String(tournamentId)
+    );
+  }
+
+  function saveAndNotifyMatches(matches) {
+    if (!saveMatches(matches)) return false;
+
+    window.dispatchEvent(new Event("matchcraft:matches-updated"));
+    return true;
+  }
+
+  function knockoutRoundLabel(matchCount, preliminary = false) {
+    if (matchCount === 1) return "Final";
+    if (matchCount === 2) return preliminary ? "Preliminary" : "Semi Final";
+    if (matchCount === 4) return "Quarter Final";
+    return preliminary ? "Preliminary" : "Knockout Round";
+  }
+
+  function groupNamesForTournament(tournament, teams) {
+    const names = [
+      ...new Set(teams.map(team => teamGroup(team, tournament)).filter(Boolean))
+    ];
+
+    return names.sort((a, b) => a.localeCompare(b));
+  }
+
   /* ==================== STANDINGS ==================== */
 
   function buildStandings(data, onlyGroup = "") {
+    const tournament = data.selected || null;
+
     const rows = data.teams.map(team => ({
       id: idOf(team),
       name: nameOf(team),
-      group: String(first(team, [
-        "group", "groupName", "groupLabel"
-      ], "")),
+      group: teamGroup(team, tournament),
       played: 0,
       won: 0,
       lost: 0,
@@ -403,7 +546,17 @@
       (name && row.name.toLowerCase() === name.toLowerCase())
     );
 
-    for (const match of data.matches.filter(isComplete)) {
+    const groupFormat = tournament &&
+      formatName(tournament) === "Group + Knockout";
+
+    let matches = (data.matches || []).filter(isComplete);
+
+    // Group + Knockout-এর পয়েন্ট টেবিলে শুধু Group Stage-এর ম্যাচ।
+    if (groupFormat || onlyGroup) {
+      matches = matches.filter(isGroupStageMatch);
+    }
+
+    for (const match of matches) {
       const aName = matchTeamName(match, "a", data.teams);
       const bName = matchTeamName(match, "b", data.teams);
 
@@ -413,6 +566,10 @@
       if (!a || !b || a.id === b.id) continue;
 
       if (onlyGroup && a.group !== onlyGroup && b.group !== onlyGroup) {
+        continue;
+      }
+
+      if (onlyGroup && (a.group !== onlyGroup || b.group !== onlyGroup)) {
         continue;
       }
 
@@ -476,117 +633,201 @@
   function getPlayerStats(data) {
     const stats = new Map();
 
-    const ensure = (id, name, teamName = "") => {
-      const key = String(id || name || "unknown");
+    const teams = Array.isArray(data.teams) ? data.teams : [];
+    const registeredPlayers = Array.isArray(data.players)
+        ? data.players
+        : [];
+    const matches = Array.isArray(data.matches)
+        ? data.matches
+        : [];
 
-      if (!stats.has(key)) {
-        stats.set(key, {
-          id: key,
-          name: name || "Unknown",
-          teamName,
-          matches: 0,
-          runs: 0,
-          balls: 0,
-          fours: 0,
-          sixes: 0,
-          wickets: 0,
-          runsConceded: 0,
-          overs: 0
-        });
-      }
+    const getTeamName = (teamId) => {
+        const team = teams.find(item =>
+            String(idOf(item)) === String(teamId)
+        );
 
-      return stats.get(key);
+        return team ? nameOf(team) : "";
     };
 
-    data.players.forEach(player => {
-      ensure(
-        idOf(player),
-        nameOf(player),
-        String(first(player, ["teamName", "team"], ""))
-      );
+    const ensure = (id, name, teamName = "") => {
+        const key = String(id || name || "unknown");
+
+        if (!stats.has(key)) {
+            const registered = registeredPlayers.find(player =>
+                String(idOf(player)) === key ||
+                (
+                    name &&
+                    nameOf(player).trim().toLowerCase() ===
+                    String(name).trim().toLowerCase()
+                )
+            );
+
+            stats.set(key, {
+                id: key,
+                name: name ||
+                    (registered ? nameOf(registered) : "Unknown"),
+                teamName: teamName ||
+                    (registered
+                        ? String(first(registered, ["teamName", "team"], ""))
+                        : ""),
+                matches: 0,
+                runs: 0,
+                balls: 0,
+                fours: 0,
+                sixes: 0,
+                wickets: 0,
+                runsConceded: 0,
+                overs: 0,
+                catches: 0,
+                stumpings: 0,
+                runOuts: 0
+            });
+        }
+
+        const player = stats.get(key);
+
+        if (name && (!player.name || player.name === "Unknown")) {
+            player.name = name;
+        }
+
+        if (teamName && !player.teamName) {
+            player.teamName = teamName;
+        }
+
+        return player;
+    };
+
+    // আগে থেকেই নিবন্ধিত সব খেলোয়াড় যোগ করা
+    registeredPlayers.forEach(player => {
+        ensure(
+            idOf(player),
+            nameOf(player),
+            String(first(player, ["teamName", "team"], ""))
+        );
     });
 
-    data.matches.forEach(match => {
-      arrayFrom(first(match, [
-        "events", "matchEvents", "scoreEvents"
-      ], [])).forEach(event => {
-        const player = ensure(
-          first(event, ["playerId", "batterId", "bowlerId"], ""),
-          String(first(event, [
-            "playerName", "batterName", "bowlerName"
-          ], ""))
-        );
+    // প্রতিটি ম্যাচের প্রকৃত liveData থেকে পরিসংখ্যান
+    matches.forEach(match => {
+        const liveData = match.liveData || match.live || {};
+        const inningsList = Array.isArray(liveData.innings)
+            ? liveData.innings
+            : [];
 
-        const type = String(first(event, [
-          "type", "eventType", "kind"
-        ], "")).toLowerCase();
+        if (!inningsList.length) return;
 
-        const runs = num(first(event, ["runs", "run", "value"], 0));
+        const playedPlayers = new Set();
 
-        if (type.includes("four")) player.fours++;
-        if (type.includes("six")) player.sixes++;
-        if (type.includes("wicket")) player.wickets++;
+        inningsList.forEach(innings => {
+            if (!innings) return;
 
-        if (
-          type.includes("run") ||
-          type.includes("four") ||
-          type.includes("six")
-        ) {
-          player.runs += runs;
-        }
-      });
+            const battingTeamName = getTeamName(
+                innings.battingTeamId
+            );
 
-      arrayFrom(first(match, [
-        "batting", "battingScorecard", "playerStats"
-      ], [])).forEach(scorecard => {
-        const player = ensure(
-          first(scorecard, ["playerId", "id"], ""),
-          String(first(scorecard, ["playerName", "name"], "Unknown")),
-          String(first(scorecard, ["teamName"], ""))
-        );
+            const bowlingTeamName = getTeamName(
+                innings.bowlingTeamId
+            );
 
-        player.runs = Math.max(
-          player.runs,
-          num(first(scorecard, ["runs", "totalRuns"], 0))
-        );
+            // ব্যাটারদের পরিসংখ্যান
+            const batters = innings.batters || {};
 
-        player.balls = Math.max(
-          player.balls,
-          num(first(scorecard, ["balls", "ballsFaced"], 0))
-        );
+            Object.entries(batters).forEach(([id, batting]) => {
+                if (!batting) return;
 
-        player.fours = Math.max(
-          player.fours,
-          num(first(scorecard, ["fours", "4s"], 0))
-        );
+                const registered = registeredPlayers.find(player =>
+                    String(idOf(player)) === String(id)
+                );
 
-        player.sixes = Math.max(
-          player.sixes,
-          num(first(scorecard, ["sixes", "6s"], 0))
-        );
+                const player = ensure(
+                    id,
+                    registered ? nameOf(registered) : id,
+                    battingTeamName
+                );
 
-        player.wickets = Math.max(
-          player.wickets,
-          num(first(scorecard, ["wickets", "wicketCount"], 0))
-        );
-      });
+                player.runs += num(batting.runs);
+                player.balls += num(batting.balls);
+                player.fours += num(batting.fours);
+                player.sixes += num(batting.sixes);
+
+                playedPlayers.add(String(id));
+            });
+
+            // বোলারদের পরিসংখ্যান
+            const bowlers = innings.bowlers || {};
+
+            Object.entries(bowlers).forEach(([id, bowling]) => {
+                if (!bowling) return;
+
+                const registered = registeredPlayers.find(player =>
+                    String(idOf(player)) === String(id)
+                );
+
+                const player = ensure(
+                    id,
+                    registered ? nameOf(registered) : id,
+                    bowlingTeamName
+                );
+
+                player.wickets += num(bowling.wickets);
+                player.runsConceded += num(bowling.runs);
+
+                // Economy হিসাবের জন্য legal balls
+                player.overs += num(bowling.legalBalls) / 6;
+
+                playedPlayers.add(String(id));
+            });
+
+            // প্রকৃত event থেকে অতিরিক্ত ফিল্ডিং তথ্য
+            const events = Array.isArray(innings.events)
+                ? innings.events
+                : [];
+
+            events.forEach(event => {
+                if (!event) return;
+
+                const wicketType = String(
+                    event.wicketType || ""
+                ).toLowerCase();
+
+                // Run Out-এ dismissed batter শনাক্ত
+                if (
+                    event.wicket &&
+                    wicketType.includes("run out")
+                ) {
+                    const dismissedId = String(
+                        event.dismissedBatterId || ""
+                    );
+
+                    if (dismissedId) {
+                        const dismissed = ensure(dismissedId);
+                        playedPlayers.add(dismissedId);
+                    }
+                }
+            });
+        });
+
+        // প্রতি ম্যাচে একজন খেলোয়াড়কে একবারই ম্যাচ গণনা
+        playedPlayers.forEach(id => {
+            const player = stats.get(id);
+            if (player) player.matches++;
+        });
     });
 
     return [...stats.values()]
-      .map(player => ({
-        ...player,
-        average: player.wickets
-          ? player.runs / player.wickets
-          : player.runs,
-        strikeRate: player.balls
-          ? player.runs * 100 / player.balls
-          : 0,
-        economy: player.overs
-          ? player.runsConceded / player.overs
-          : 0
-      }))
-      .sort((a, b) => b.runs - a.runs);
-  }
+        .map(player => ({
+            ...player,
+            average: player.wickets
+                ? player.runs / player.wickets
+                : player.runs,
+            strikeRate: player.balls
+                ? player.runs * 100 / player.balls
+                : 0,
+            economy: player.overs
+                ? player.runsConceded / player.overs
+                : 0
+        }))
+        .sort((a, b) => b.runs - a.runs);
+}
 
   /* ==================== FIXTURE GENERATION ==================== */
 
@@ -715,106 +956,453 @@
       return;
     }
 
-    if (data.teams.length < 2) {
+    const teams = data.teams || [];
+    const groupCount = Math.floor(Number(tournament.numberOfGroups));
+
+    if (teams.length < 2) {
       alert("গ্রুপ ফিক্সচার তৈরির জন্য অন্তত ২টি দল প্রয়োজন।");
       return;
     }
 
-    let groups = [...new Set(data.teams.map(team =>
-      String(first(team, ["group", "groupName", "groupLabel"], "")).trim()
-    ).filter(Boolean))];
-
-    if (!groups.length) {
-      const answer = prompt(
-        "কতটি গ্রুপ তৈরি করতে চান? (যেমন: 2)",
-        "2"
-      );
-
-      if (answer === null) return;
-
-      const groupCount = Math.floor(Number(answer));
-
-      if (
-        !Number.isFinite(groupCount) ||
-        groupCount < 2 ||
-        groupCount > data.teams.length
-      ) {
-        alert("গ্রুপের সংখ্যা সঠিকভাবে দিন।");
-        return;
-      }
-
-      groups = Array.from(
-        { length: groupCount },
-        (_, index) => `Group ${String.fromCharCode(65 + index)}`
-      );
-
-      /*
-       * Group assignment is used for generated fixtures only.
-       * Existing team records are not modified.
-       */
+    if (
+      !Number.isInteger(groupCount) ||
+      groupCount < 2 ||
+      groupCount > teams.length
+    ) {
+      alert("Tournament Setup থেকে সঠিক Group সংখ্যা নির্ধারণ করুন।");
+      return;
     }
 
-    const groupedTeams = new Map(groups.map(group => [group, []]));
+    if (teams.length % groupCount !== 0) {
+      alert(
+        `সমানভাবে দল ভাগ করা যাচ্ছে না।\n\n` +
+        `মোট দল: ${teams.length}\n` +
+        `গ্রুপ: ${groupCount}\n\n` +
+        `দলসংখ্যা গ্রুপসংখ্যা দিয়ে নিঃশেষে ভাগ হতে হবে।`
+      );
+      return;
+    }
 
-    data.teams.forEach((team, index) => {
-      let group = String(first(
-        team, ["group", "groupName", "groupLabel"], ""
-      )).trim();
+    const matches = readStorage(STORAGE.matches);
+    const existingGroupMatches = tournamentMatches(
+      matches, tournamentId
+    ).filter(match =>
+      match.generatedFixture === true &&
+      isGroupStageMatch(match)
+    );
 
-      if (!group) {
-        group = groups[index % groups.length];
-      }
+    // আগের Group ম্যাচে ফলাফল বা Live অবস্থা থাকলে সেগুলো নিরাপদ রাখো।
+    const protectedMatches = existingGroupMatches.filter(match =>
+      isComplete(match) || isLive(match)
+    );
 
-      if (!groupedTeams.has(group)) {
-        groupedTeams.set(group, []);
-      }
+    if (protectedMatches.length) {
+      alert(
+        "এই Group Stage-এ Live অথবা Completed ম্যাচ রয়েছে।\n\n" +
+        "আগের ফলাফল নষ্ট হওয়ার ঝুঁকি এড়াতে Group Pairing পুনরায় তৈরি করা হয়নি।"
+      );
+      return;
+    }
 
+    const teamsPerGroup = teams.length / groupCount;
+    const groups = Array.from(
+      { length: groupCount },
+      (_, index) => `Group ${String.fromCharCode(65 + index)}`
+    );
+
+    const assignments = {};
+    const groupedTeams = new Map(
+      groups.map(group => [group, []])
+    );
+
+    // সমান সংখ্যক দল প্রতিটি গ্রুপে ভাগ করো।
+    teams.forEach((team, index) => {
+      const groupIndex = Math.floor(index / teamsPerGroup);
+      const group = groups[groupIndex];
+
+      assignments[idOf(team)] = group;
       groupedTeams.get(group).push(team);
     });
 
-    const matches = readStorage(STORAGE.matches);
-    let added = 0;
-    let number = matches.length + 1;
+    // Tournament record-এ Group Assignment স্থায়ীভাবে সংরক্ষণ।
+    const updatedTournament = {
+      ...tournament,
+      numberOfGroups: groupCount,
+      groupAssignments: assignments,
+      groupNames: groups,
+      groupPairingGenerated: true,
+      groupPairingUpdatedAt: new Date().toISOString(),
+      knockoutState: null
+    };
 
-    for (const [group, teams] of groupedTeams) {
-      for (let i = 0; i < teams.length; i++) {
-        for (let j = i + 1; j < teams.length; j++) {
-          const teamA = teams[i];
-          const teamB = teams[j];
+    if (!saveTournamentRecord(updatedTournament)) {
+      alert("Group Assignment সংরক্ষণ করা যায়নি।");
+      return;
+    }
+
+    // শুধু আগের Pending generated Group fixtures সরিয়ে নতুন করে বানাও।
+    const preservedMatches = matches.filter(match => !(
+      tournamentIdOf(match) === tournamentId &&
+      match.generatedFixture === true &&
+      isGroupStageMatch(match)
+    ));
+
+    let number = preservedMatches.length + 1;
+    let added = 0;
+
+    for (const [group, groupTeams] of groupedTeams) {
+      for (let i = 0; i < groupTeams.length; i++) {
+        for (let j = i + 1; j < groupTeams.length; j++) {
+          const teamA = groupTeams[i];
+          const teamB = groupTeams[j];
           const round = `Group Stage - ${group}`;
 
-          if (fixtureExists(
-            matches,
-            tournamentId,
-            idOf(teamA),
-            idOf(teamB),
-            round
-          )) {
-            continue;
-          }
-
           const fixture = createFixture(
-            tournament, teamA, teamB, round, number++
+            updatedTournament,
+            teamA,
+            teamB,
+            round,
+            number++
           );
 
           fixture.group = group;
           fixture.groupName = group;
+          fixture.groupStage = true;
+          fixture.knockoutStage = false;
+          fixture.generatedFixture = true;
 
-          matches.push(fixture);
+          preservedMatches.push(fixture);
           added++;
         }
       }
     }
 
-    if (!added) {
-      alert("এই টুর্নামেন্টের Group Stage ফিক্সচার আগে থেকেই আছে।");
-      return;
+    if (!saveAndNotifyMatches(preservedMatches)) return;
+
+    alert(
+      `Group Pairing সফলভাবে তৈরি হয়েছে!\n\n` +
+      `মোট দল: ${teams.length}\n` +
+      `মোট গ্রুপ: ${groupCount}\n` +
+      `প্রতি গ্রুপে দল: ${teamsPerGroup}\n` +
+      `নতুন Group ম্যাচ: ${added}`
+    );
+
+    state.tournamentId = tournamentId;
+    render();
+  }
+
+  /* ==================== AUTOMATIC GROUP KNOCKOUT ==================== */
+
+  function createKnockoutFixture(
+    tournament,
+    teamA,
+    teamB,
+    roundName,
+    roundIndex,
+    matchNumber
+  ) {
+    const fixture = createFixture(
+      tournament,
+      teamA,
+      teamB,
+      roundName,
+      matchNumber
+    );
+
+    fixture.knockoutStage = true;
+    fixture.groupStage = false;
+    fixture.knockoutRoundIndex = roundIndex;
+    fixture.knockoutRound = roundName;
+    fixture.generatedFixture = true;
+
+    return fixture;
+  }
+
+  function getGroupQualifiers(tournament, teams, matches) {
+    const groups = groupNamesForTournament(tournament, teams);
+
+    if (!groups.length) return [];
+
+    const data = {
+      selected: tournament,
+      teams,
+      matches
+    };
+
+    const qualifiers = [];
+
+    for (const group of groups) {
+      const table = buildStandings(data, group);
+
+      // প্রতিটি গ্রুপ থেকে শীর্ষ দুই দল।
+      if (table.length < 2) return [];
+
+      qualifiers.push({
+        ...table[0],
+        group,
+        seed: 0
+      });
+
+      qualifiers.push({
+        ...table[1],
+        group,
+        seed: 0
+      });
     }
 
-    if (saveMatches(matches)) {
-      alert(`${added}টি Group Stage ফিক্সচার তৈরি ও সংরক্ষণ হয়েছে।`);
-      render();
+    qualifiers.sort((a, b) =>
+      b.points - a.points ||
+      b.nrr - a.nrr ||
+      b.won - a.won ||
+      a.group.localeCompare(b.group)
+    );
+
+    qualifiers.forEach((team, index) => {
+      team.seed = index + 1;
+    });
+
+    return qualifiers;
+  }
+
+  function createInitialKnockoutRound(
+    tournament,
+    qualifiers,
+    matches
+  ) {
+    const total = qualifiers.length;
+
+    if (total < 2) return null;
+
+    let power = 1;
+    while (power * 2 <= total) power *= 2;
+
+    const isPowerOfTwo = power === total;
+    const initialMatchCount = isPowerOfTwo
+      ? total / 2
+      : total - power;
+
+    const byeCount = isPowerOfTwo
+      ? 0
+      : total - (initialMatchCount * 2);
+
+    const roundName = knockoutRoundLabel(
+      initialMatchCount,
+      !isPowerOfTwo
+    );
+
+    const byeTeams = qualifiers.slice(0, byeCount);
+    const playingTeams = qualifiers.slice(byeCount);
+
+    let number = matches.length + 1;
+    let added = 0;
+
+    for (let i = 0; i < initialMatchCount; i++) {
+      const teamA = playingTeams[i];
+      const teamB = playingTeams[playingTeams.length - 1 - i];
+
+      if (!teamA || !teamB) continue;
+
+      const fixture = createKnockoutFixture(
+        tournament,
+        { id: teamA.id, name: teamA.name },
+        { id: teamB.id, name: teamB.name },
+        roundName,
+        1,
+        number++
+      );
+
+      fixture.seed1 = teamA.seed;
+      fixture.seed2 = teamB.seed;
+
+      matches.push(fixture);
+      added++;
     }
+
+    const stateData = {
+      qualifiers: qualifiers.map(team => ({
+        id: team.id,
+        name: team.name,
+        group: team.group,
+        seed: team.seed
+      })),
+      byeTeamIds: byeTeams.map(team => team.id),
+      currentRoundIndex: 1,
+      currentRoundName: roundName,
+      completed: false,
+      championTeamId: "",
+      createdAt: new Date().toISOString()
+    };
+
+    return {
+      state: stateData,
+      added
+    };
+  }
+
+  function progressGroupKnockout(tournamentId) {
+    const tournaments = readStorage(STORAGE.tournaments);
+    const tournament = tournaments.find(
+      item => idOf(item) === String(tournamentId)
+    );
+
+    if (!tournament ||
+        formatName(tournament) !== "Group + Knockout") {
+      return false;
+    }
+
+    const teams = readStorage(STORAGE.teams).filter(team => {
+      const tid = tournamentIdOf(team);
+      return !tid || tid === String(tournamentId);
+    });
+
+    let matches = readStorage(STORAGE.matches);
+
+    const tournamentGroupMatches = tournamentMatches(
+      matches,
+      tournamentId
+    ).filter(isGroupStageMatch);
+
+    if (!tournamentGroupMatches.length) return false;
+
+    // সব Group ম্যাচ শেষ না হলে Knockout শুরু হবে না।
+    if (!tournamentGroupMatches.every(isComplete)) return false;
+
+    let knockoutState = tournament.knockoutState || null;
+
+    // প্রথমবার Qualifier ও প্রথম Knockout রাউন্ড তৈরি।
+    if (!knockoutState) {
+      const qualifiers = getGroupQualifiers(
+        tournament,
+        teams,
+        matches
+      );
+
+      if (qualifiers.length < 2) return false;
+
+      const initial = createInitialKnockoutRound(
+        tournament,
+        qualifiers,
+        matches
+      );
+
+      if (!initial || !initial.added) return false;
+
+      knockoutState = initial.state;
+
+      const updatedTournament = {
+        ...tournament,
+        knockoutState
+      };
+
+      if (!saveTournamentRecord(updatedTournament)) return false;
+      if (!saveAndNotifyMatches(matches)) return false;
+
+      return true;
+    }
+
+    if (knockoutState.completed) return false;
+
+    const roundIndex = Number(knockoutState.currentRoundIndex || 1);
+
+    const currentRoundMatches = tournamentMatches(
+      matches,
+      tournamentId
+    ).filter(match =>
+      match.knockoutStage === true &&
+      Number(match.knockoutRoundIndex) === roundIndex
+    );
+
+    if (!currentRoundMatches.length) return false;
+
+    // বর্তমান রাউন্ডের সব ম্যাচ শেষ না হলে অপেক্ষা।
+    if (!currentRoundMatches.every(isComplete)) return false;
+
+    const qualifierList = knockoutState.qualifiers || [];
+    const seedMap = new Map(
+      qualifierList.map(team => [String(team.id), team])
+    );
+
+    const advancing = [];
+
+    // আগের রাউন্ডের Bye পাওয়া দলগুলো পরের রাউন্ডে থাকবে।
+    if (roundIndex === 1) {
+      (knockoutState.byeTeamIds || []).forEach(id => {
+        const team = seedMap.get(String(id));
+        if (team) advancing.push(team);
+      });
+    }
+
+    // বর্তমান রাউন্ডের বিজয়ীরা পরের রাউন্ডে যাবে।
+    currentRoundMatches.forEach(match => {
+      const id = winnerId(match);
+      const team = seedMap.get(String(id));
+
+      if (team) advancing.push(team);
+    });
+
+    // Seed অনুযায়ী সাজানো।
+    advancing.sort((a, b) => Number(a.seed) - Number(b.seed));
+
+    if (advancing.length < 2) {
+      if (advancing.length === 1) {
+        knockoutState.completed = true;
+        knockoutState.championTeamId = advancing[0].id;
+
+        saveTournamentRecord({
+          ...tournament,
+          knockoutState
+        });
+      }
+      return true;
+    }
+
+    const nextRoundIndex = roundIndex + 1;
+    const nextMatchCount = Math.floor(advancing.length / 2);
+    const nextRoundName = knockoutRoundLabel(nextMatchCount);
+
+    let number = matches.length + 1;
+
+    for (let i = 0; i < nextMatchCount; i++) {
+      const teamA = advancing[i];
+      const teamB = advancing[advancing.length - 1 - i];
+
+      const originalA = teams.find(team =>
+        idOf(team) === String(teamA.id)
+      );
+
+      const originalB = teams.find(team =>
+        idOf(team) === String(teamB.id)
+      );
+
+      if (!originalA || !originalB) continue;
+
+      const fixture = createKnockoutFixture(
+        tournament,
+        originalA,
+        originalB,
+        nextRoundName,
+        nextRoundIndex,
+        number++
+      );
+
+      fixture.seed1 = teamA.seed;
+      fixture.seed2 = teamB.seed;
+
+      matches.push(fixture);
+    }
+
+    knockoutState.currentRoundIndex = nextRoundIndex;
+    knockoutState.currentRoundName = nextRoundName;
+    knockoutState.byeTeamIds = [];
+    knockoutState.updatedAt = new Date().toISOString();
+
+    const updatedTournament = {
+      ...tournament,
+      knockoutState
+    };
+
+    if (!saveTournamentRecord(updatedTournament)) return false;
+    return saveAndNotifyMatches(matches);
   }
 
   function generateKnockoutFixtures(data) {
@@ -896,67 +1484,74 @@
    * Winner-to-next-round progression will be connected to match.js.
    */
   function updatePlayoffs() {
-  const data = selectedData();
+    const data = selectedData();
 
-  if (!data.selected) {
-    alert("আগে একটি নির্দিষ্ট Tournament নির্বাচন করুন।");
-    return;
-  }
+    if (!data.selected) {
+      alert("আগে একটি নির্দিষ্ট Tournament নির্বাচন করুন।");
+      return;
+    }
 
-  const matches = data.matches || [];
-  const completed = matches.filter(isComplete).length;
-  const pending = matches.length - completed;
+    if (formatName(data.selected) === "Group + Knockout") {
+      const changed = progressGroupKnockout(idOf(data.selected));
 
-  const format = String(first(data.selected, [
-    "format", "tournamentFormat", "tournamentType", "type", "typeLabel"
-  ], "")).toLowerCase();
+      const refreshed = selectedData();
+      const stateData = refreshed.selected?.knockoutState;
 
-  const finalMatches = matches.filter(match =>
-    /final/i.test(String(first(match, [
-      "round", "stage", "roundName", "stageName"
-    ], "")))
-  );
+      if (stateData?.completed) {
+        const champion = refreshed.teams.find(team =>
+          idOf(team) === String(stateData.championTeamId)
+        );
 
-  const knockout = /knock/i.test(format);
-  const directFinal =
-    knockout &&
-    matches.length === 1 &&
-    finalMatches.length === 0;
+        alert(
+          `🏆 Tournament Champion\n\n` +
+          `${champion ? nameOf(champion) : "Champion নির্ধারিত"}`
+        );
+      } else if (changed) {
+        alert("Playoff Progression আপডেট হয়েছে।");
+      } else {
+        const groupMatches = data.matches.filter(isGroupStageMatch);
+        const pending = groupMatches.filter(match => !isComplete(match));
 
-  const actualFinalExists =
-    finalMatches.length > 0 || directFinal;
+        if (pending.length) {
+          alert(
+            `Group Stage এখনো শেষ হয়নি।\n\n` +
+            `বাকি Group ম্যাচ: ${pending.length}\n` +
+            `সব Group ম্যাচ শেষ হলে Knockout তৈরি হবে।`
+          );
+        } else {
+          alert("Playoff-এর জন্য প্রয়োজনীয় ফলাফল এখনো পাওয়া যায়নি।");
+        }
+      }
 
-  const final = finalMatches.length
-    ? finalMatches[finalMatches.length - 1]
-    : directFinal
-      ? matches[0]
-      : null;
+      render();
+      return;
+    }
 
-  const champion = final
-    ? winnerName(final, data.teams)
-    : "";
+    const matches = data.matches || [];
+    const completed = matches.filter(isComplete).length;
+    const pending = matches.length - completed;
 
-  let message =
-    `Playoffs Status\n\n` +
-    `Tournament: ${tournamentLabel(data.selected)}\n` +
-    `Completed matches: ${completed}\n` +
-    `Pending matches: ${pending}\n`;
-
-  if (actualFinalExists) {
-    message +=
-      `\nFinal match: ${String(first(final, [
+    const finalMatches = matches.filter(match =>
+      /final/i.test(String(first(match, [
         "round", "stage", "roundName", "stageName"
-      ], "Final"))}\n` +
-      `Champion: ${champion || "Final result pending"}\n`;
-  } else {
-    message +=
-      `\nFinal match: এখনো শনাক্ত হয়নি।\n` +
-      `বাকি ম্যাচ শেষ হলে Final নির্ধারণ করা যাবে।\n`;
-  }
+      ], "")))
+    );
 
-  alert(message);
-  render();
-}
+    const final = finalMatches[finalMatches.length - 1] || null;
+    const champion = final
+      ? winnerName(final, data.teams)
+      : "";
+
+    alert(
+      `Playoffs Status\n\n` +
+      `Tournament: ${tournamentLabel(data.selected)}\n` +
+      `Completed matches: ${completed}\n` +
+      `Pending matches: ${pending}\n` +
+      `Champion: ${champion || "Not decided"}`
+    );
+
+    render();
+  }
 
   /* ==================== MAIN RENDER ==================== */
 
@@ -1307,11 +1902,10 @@
     }
 
     if (format === "Group + Knockout") {
-      const groups = [
-        ...new Set(data.teams.map(team => String(first(team, [
-          "group", "groupName", "groupLabel"
-        ], "")).trim()).filter(Boolean))
-      ];
+      const groups = groupNamesForTournament(
+        data.selected,
+        data.teams
+      );
 
       return `
         <div class="mc-section-heading">
@@ -1486,7 +2080,7 @@
 
   function renderBracket(data) {
     const matches = data.matches.filter(match =>
-      /semi|quarter|final|knockout|eliminator|qualifier|play.?off/i.test(
+      /preliminary|semi|quarter|final|knockout|eliminator|qualifier|play.?off/i.test(
         String(first(match, [
           "round", "stage", "matchType", "roundName", "phase"
         ], ""))
@@ -1728,28 +2322,110 @@
 
   /* ==================== AWARDS & REPORT ==================== */
 
-  function renderAwards(data, standings, players) {
+ function renderAwards(data, standings, players) {
+
+    // সব সংরক্ষিত ম্যাচ LocalStorage থেকে পড়া
+    function readStoredArray(key) {
+        try {
+            const raw = localStorage.getItem(key);
+            if (!raw) return [];
+
+            const parsed = JSON.parse(raw);
+
+            if (Array.isArray(parsed)) return parsed;
+            if (Array.isArray(parsed.data)) return parsed.data;
+            if (Array.isArray(parsed.items)) return parsed.items;
+
+            return [];
+        } catch (error) {
+            console.warn("Awards data read error:", key, error);
+            return [];
+        }
+    }
+
+    const storedMatches = readStoredArray(
+        "matchcraft_cricket_matches"
+    );
+
+    const storedPlayers = readStoredArray(
+        "matchcraft_cricket_players"
+    );
+
+    const storedTeams = readStoredArray(
+        "matchcraft_cricket_teams"
+    );
+
+    // নির্বাচিত টুর্নামেন্টের ID
+    const selectedTournamentId = String(first(
+        data.selected || {},
+        ["id", "_id", "tournamentId", "tournament_id"],
+        ""
+    ));
+
+    // নির্বাচিত টুর্নামেন্টের সব পুরোনো ও নতুন ম্যাচ
+    const tournamentMatches = storedMatches.filter(match => {
+
+        const tournamentId = String(first(match, [
+            "tournamentId",
+            "tournament_id"
+        ], first(match.tournament || {}, [
+            "id",
+            "_id",
+            "tournamentId"
+        ], "")));
+
+        if (!selectedTournamentId) return true;
+
+        return tournamentId === selectedTournamentId;
+    });
+
+    // পুরোনো টুর্নামেন্টের সংরক্ষিত ডেটা দিয়ে হিসাব
+    const awardData = {
+        ...data,
+        matches: tournamentMatches,
+        players: storedPlayers.length
+            ? storedPlayers
+            : (data.players || []),
+        teams: storedTeams.length
+            ? storedTeams
+            : (data.teams || [])
+    };
+
+    data = awardData;
+
+    // প্রকৃত ম্যাচের ডেটা থেকে খেলোয়াড়ের পরিসংখ্যান তৈরি
+    players = getPlayerStats(awardData);
+
+    const allPlayers = awardData.players || [];
+
     const ranked = (field) =>
-        players
+        (players || [])
             .filter(player => Number(player[field] || 0) > 0)
             .slice()
-            .sort((a, b) => Number(b[field] || 0) - Number(a[field] || 0));
+            .sort((a, b) =>
+                Number(b[field] || 0) - Number(a[field] || 0)
+            );
 
     const byRuns = ranked("runs")[0];
     const byWickets = ranked("wickets")[0];
     const bySixes = ranked("sixes")[0];
     const byFours = ranked("fours")[0];
 
-    const byStrikeRate = players
-        .filter(player => Number(player.balls || 0) > 0)
+    const byStrikeRate = (players || [])
+        .filter(player =>
+            Number(player.balls || 0) > 0 &&
+            Number(player.runs || 0) > 0
+        )
         .map(player => ({
             ...player,
-            calculatedSR: Number(player.strikeRate) ||
-                (Number(player.runs || 0) / Number(player.balls || 1)) * 100
+            calculatedSR:
+                Number(player.strikeRate) ||
+                (Number(player.runs) / Number(player.balls)) * 100
         }))
+        .filter(player => player.calculatedSR > 0)
         .sort((a, b) => b.calculatedSR - a.calculatedSR)[0];
 
-    const byAllRound = players
+    const byAllRound = (players || [])
         .filter(player =>
             Number(player.runs || 0) > 0 &&
             Number(player.wickets || 0) > 0
@@ -1765,28 +2441,39 @@
         }))
         .sort((a, b) => b.awardScore - a.awardScore)[0];
 
-    const byWicketkeeper = players
+    const byWicketkeeper = (players || [])
         .filter(player =>
             Number(player.stumpings || 0) > 0 ||
             Number(player.catches || 0) > 0
         )
         .slice()
         .sort((a, b) =>
-            (Number(b.stumpings || 0) * 2 + Number(b.catches || 0)) -
-            (Number(a.stumpings || 0) * 2 + Number(a.catches || 0))
+            (
+                Number(b.stumpings || 0) * 2 +
+                Number(b.catches || 0)
+            ) - (
+                Number(a.stumpings || 0) * 2 +
+                Number(a.catches || 0)
+            )
         )[0];
 
-    const byFielder = players
+    const byFielder = (players || [])
         .filter(player =>
             Number(player.catches || 0) > 0 ||
             Number(player.runOuts || 0) > 0
         )
         .slice()
         .sort((a, b) =>
-            (Number(b.catches || 0) + Number(b.runOuts || 0)) -
-            (Number(a.catches || 0) + Number(a.runOuts || 0))
+            (
+                Number(b.catches || 0) +
+                Number(b.runOuts || 0)
+            ) - (
+                Number(a.catches || 0) +
+                Number(a.runOuts || 0)
+            )
         )[0];
 
+    /* Final match শনাক্ত */
     const finalMatches = (data.matches || []).filter(match =>
         /final/i.test(String(first(match, [
             "round", "stage", "roundName", "stageName"
@@ -1797,7 +2484,8 @@
 
     if (!final && (data.matches || []).length === 1) {
         const format = String(first(data.selected || {}, [
-            "format", "tournamentFormat", "tournamentType", "type", "typeLabel"
+            "format", "tournamentFormat",
+            "tournamentType", "type", "typeLabel"
         ], "")).toLowerCase();
 
         if (format.includes("knock")) {
@@ -1805,57 +2493,240 @@
         }
     }
 
-    const champion = final ? winnerName(final, data.teams) : "";
+    /* Champion আগের মতোই */
+    const champion = final
+        ? winnerName(final, data.teams)
+        : "";
 
-    const playerOfTournament = players
-        .map(player => ({
-            ...player,
-            tournamentScore:
-                Number(player.runs || 0) +
-                Number(player.wickets || 0) * 20 +
-                Number(player.catches || 0) * 10 +
-                Number(player.stumpings || 0) * 10 +
-                Number(player.runOuts || 0) * 10 +
-                Number(player.sixes || 0) * 2 +
-                Number(player.fours || 0)
-        }))
-        .filter(player => player.tournamentScore > 0)
-        .sort((a, b) => b.tournamentScore - a.tournamentScore)[0];
+    /* Final Match-এর Man of the Match খোঁজা */
+    function getManOfMatch(match) {
+        if (!match) return null;
 
-    const cards = [
-        ["🏆", "Tournament Champion", champion || "Not decided",
-            champion ? "Final result saved" : "Final result pending"],
-        ["🌟", "Player of the Tournament", playerOfTournament?.name || "—",
-            playerOfTournament
-                ? "Calculated from available player statistics"
-                : "Player statistics pending"],
-        ["🏏", "Best Batter / Top Run Scorer", byRuns?.name || "—",
-            `${byRuns?.runs || 0} runs`],
-        ["🔄", "Best All-Rounder", byAllRound?.name || "—",
-            byAllRound
-                ? `${byAllRound.runs} runs · ${byAllRound.wickets} wickets`
-                : "Batting and bowling data required"],
-        ["🧤", "Best Wicketkeeper", byWicketkeeper?.name || "—",
-            byWicketkeeper
-                ? `${byWicketkeeper.catches || 0} catches · ${byWicketkeeper.stumpings || 0} stumpings`
-                : "Wicketkeeping records unavailable"],
-        ["🎯", "Best Fielder", byFielder?.name || "—",
-            byFielder
-                ? `${byFielder.catches || 0} catches · ${byFielder.runOuts || 0} run outs`
-                : "Fielding records unavailable"],
-        ["⚡", "Best Strike Rate", byStrikeRate?.name || "—",
-            byStrikeRate
-                ? `${byStrikeRate.calculatedSR.toFixed(2)} SR`
-                : "Ball records required"],
-        ["🎯", "Top Wicket Taker", byWickets?.name || "—",
-            `${byWickets?.wickets || 0} wickets`],
-        ["🚀", "Most Sixes", bySixes?.name || "—",
-            `${bySixes?.sixes || 0} sixes`],
-        ["💥", "Most Fours", byFours?.name || "—",
-            `${byFours?.fours || 0} fours`],
-        ["🥇", "League Leader", standings[0]?.name || "—",
-            standings[0] ? `${standings[0].points} points` : "No standings"]
-    ];
+        const sources = [
+            match,
+            match.result,
+            match.awards,
+            match.matchAwards,
+            match.playerAwards,
+            match.statistics
+        ].filter(Boolean);
+
+        const momKeys = [
+            "manOfTheMatch",
+            "manOfMatch",
+            "playerOfTheMatch",
+            "playerOfMatch",
+            "manOfTheMatchName",
+            "manOfMatchName",
+            "playerOfTheMatchName",
+            "playerOfMatchName",
+            "mom",
+            "motm",
+            "man_of_the_match",
+            "player_of_match"
+        ];
+
+        const idKeys = [
+            "manOfTheMatchId",
+            "manOfMatchId",
+            "playerOfTheMatchId",
+            "playerOfMatchId",
+            "momPlayerId",
+            "motmPlayerId",
+            "man_of_the_match_id",
+            "player_of_match_id"
+        ];
+
+        let candidate = null;
+
+        for (const source of sources) {
+            candidate = first(source, momKeys, null);
+
+            if (candidate) break;
+        }
+
+        let candidateId = "";
+
+        if (!candidate) {
+            for (const source of sources) {
+                candidateId = first(source, idKeys, "");
+
+                if (candidateId) break;
+            }
+        }
+
+        if (!candidate && !candidateId) return null;
+
+        let candidateName = "";
+
+        if (typeof candidate === "string") {
+            candidateName = candidate;
+        } else if (candidate && typeof candidate === "object") {
+            candidateName = first(candidate, [
+                "name", "playerName", "fullName",
+                "displayName", "label"
+            ], "");
+
+            candidateId = candidateId || first(candidate, [
+                "id", "_id", "playerId", "player_id"
+            ], "");
+        }
+
+        const registeredPlayer = allPlayers.find(player => {
+            const playerId = String(first(player, [
+                "id", "_id", "playerId", "player_id"
+            ], ""));
+
+            const playerName = String(first(player, [
+                "name", "playerName", "fullName"
+            ], "")).trim().toLowerCase();
+
+            return (
+                (candidateId && playerId === String(candidateId)) ||
+                (candidateName &&
+                    playerName === String(candidateName).trim().toLowerCase())
+            );
+        });
+
+        const statPlayer = (players || []).find(player => {
+            const playerId = String(first(player, [
+                "id", "_id", "playerId"
+            ], ""));
+
+            const playerName = String(player.name || "")
+                .trim().toLowerCase();
+
+            return (
+                (candidateId && playerId === String(candidateId)) ||
+                (candidateName &&
+                    playerName === String(candidateName).trim().toLowerCase())
+            );
+        });
+
+        const name =
+            candidateName ||
+            (registeredPlayer && first(registeredPlayer, [
+                "name", "playerName", "fullName"
+            ], "")) ||
+            statPlayer?.name ||
+            "";
+
+        if (!name) return null;
+
+        const photo = registeredPlayer
+            ? first(registeredPlayer, [
+                "photo", "image", "avatar",
+                "profileImage", "profilePhoto",
+                "imageUrl", "photoUrl", "picture"
+            ], "")
+            : "";
+
+        return {
+            name,
+            photo: typeof photo === "string" ? photo : ""
+        };
+    }
+
+    const manOfMatch = getManOfMatch(final);
+
+    /* শুধু প্রকৃত তথ্য থাকা Award Card তৈরি */
+    const cards = [];
+
+    // Champion Card আগের মতোই থাকবে।
+    cards.push({
+        icon: "🏆",
+        title: "Tournament Champion",
+        name: champion || "Not decided",
+        detail: champion
+            ? "Final result saved"
+            : "Final result pending"
+    });
+
+    if (manOfMatch) {
+        cards.push({
+            icon: "🌟",
+            title: "Player of the Tournament",
+            name: manOfMatch.name,
+            detail: "Final Match · Man of the Match",
+            photo: manOfMatch.photo
+        });
+    }
+
+    if (byRuns) {
+        cards.push({
+            icon: "🏏",
+            title: "Best Batter / Top Run Scorer",
+            name: byRuns.name,
+            detail: `${byRuns.runs} runs`
+        });
+    }
+
+    if (byAllRound) {
+        cards.push({
+            icon: "🔄",
+            title: "Best All-Rounder",
+            name: byAllRound.name,
+            detail: `${byAllRound.runs} runs · ${byAllRound.wickets} wickets`
+        });
+    }
+
+    if (byWicketkeeper) {
+        cards.push({
+            icon: "🧤",
+            title: "Best Wicketkeeper",
+            name: byWicketkeeper.name,
+            detail:
+                `${byWicketkeeper.catches || 0} catches · ` +
+                `${byWicketkeeper.stumpings || 0} stumpings`
+        });
+    }
+
+    if (byFielder) {
+        cards.push({
+            icon: "🎯",
+            title: "Best Fielder",
+            name: byFielder.name,
+            detail:
+                `${byFielder.catches || 0} catches · ` +
+                `${byFielder.runOuts || 0} run outs`
+        });
+    }
+
+    if (byStrikeRate) {
+        cards.push({
+            icon: "⚡",
+            title: "Best Strike Rate",
+            name: byStrikeRate.name,
+            detail: `${byStrikeRate.calculatedSR.toFixed(2)} SR`
+        });
+    }
+
+    if (byWickets) {
+        cards.push({
+            icon: "🎯",
+            title: "Top Wicket Taker",
+            name: byWickets.name,
+            detail: `${byWickets.wickets} wickets`
+        });
+    }
+
+    if (bySixes) {
+        cards.push({
+            icon: "🚀",
+            title: "Most Sixes",
+            name: bySixes.name,
+            detail: `${bySixes.sixes} sixes`
+        });
+    }
+
+    if (byFours) {
+        cards.push({
+            icon: "💥",
+            title: "Most Fours",
+            name: byFours.name,
+            detail: `${byFours.fours} fours`
+        });
+    }
 
     return `
       <div class="mc-section-heading">
@@ -1871,10 +2742,20 @@
       <div class="mc-award-grid">
         ${cards.map(card => `
           <article class="mc-award-card">
-            <span>${card[0]}</span>
-            <small>${esc(card[1])}</small>
-            <strong>${esc(card[2])}</strong>
-            <p>${esc(card[3])}</p>
+            <span>${card.icon}</span>
+            <small>${esc(card.title)}</small>
+
+            ${card.photo ? `
+              <img
+                src="${esc(card.photo)}"
+                alt="${esc(card.name)}"
+                style="width:64px;height:64px;object-fit:cover;border-radius:50%;"
+                onerror="this.style.display='none'"
+              >
+            ` : ""}
+
+            <strong>${esc(card.name)}</strong>
+            <p>${esc(card.detail)}</p>
           </article>
         `).join("")}
       </div>
@@ -1882,12 +2763,36 @@
       <article class="mc-panel mc-report-panel">
         <h3>Season Summary</h3>
         <div class="mc-report-grid">
-          <div><span>Tournament</span><b>${esc(data.selected ? tournamentLabel(data.selected) : "All Tournaments")}</b></div>
-          <div><span>Format</span><b>${esc(data.selected ? formatName(data.selected) : "Mixed / All")}</b></div>
+          <div>
+            <span>Tournament</span>
+            <b>${esc(data.selected
+                ? tournamentLabel(data.selected)
+                : "All Tournaments")}</b>
+          </div>
+
+          <div>
+            <span>Format</span>
+            <b>${esc(data.selected
+                ? formatName(data.selected)
+                : "Mixed / All")}</b>
+          </div>
+
           <div><span>Teams</span><b>${data.teams.length}</b></div>
-          <div><span>Matches played</span><b>${data.matches.filter(isComplete).length}</b></div>
-          <div><span>Matches remaining</span><b>${data.matches.filter(match => !isComplete(match)).length}</b></div>
-          <div><span>Champion</span><b>${esc(champion || "Pending")}</b></div>
+
+          <div>
+            <span>Matches played</span>
+            <b>${data.matches.filter(isComplete).length}</b>
+          </div>
+
+          <div>
+            <span>Matches remaining</span>
+            <b>${data.matches.filter(match => !isComplete(match)).length}</b>
+          </div>
+
+          <div>
+            <span>Champion</span>
+            <b>${esc(champion || "Pending")}</b>
+          </div>
         </div>
       </article>
     `;
@@ -1901,6 +2806,35 @@
         <p>${esc(message)}</p>
       </div>
     `;
+  }
+
+  /* ==================== AUTOMATIC PROGRESSION LISTENER ==================== */
+
+  let progressionRunning = false;
+
+  function syncAutomaticProgression() {
+    if (progressionRunning) return;
+
+    progressionRunning = true;
+
+    try {
+      const tournaments = readStorage(STORAGE.tournaments);
+
+      tournaments.forEach(tournament => {
+        if (formatName(tournament) === "Group + Knockout") {
+          progressGroupKnockout(idOf(tournament));
+        }
+      });
+    } catch (error) {
+      console.error(
+        "MATCHCRAFT: Automatic knockout progression failed.",
+        error
+      );
+    } finally {
+      progressionRunning = false;
+    }
+
+    render();
   }
 
   /* ==================== INITIALIZATION ==================== */
@@ -1930,9 +2864,20 @@
     init();
   }
 
+ // Match Center থেকে ফলাফল সংরক্ষিত হলে Group + Knockout আপডেট।
+  document.addEventListener(
+    "matchcraft:datachange",
+    syncAutomaticProgression
+  );
+
+  window.addEventListener(
+    "matchcraft:matches-updated",
+    syncAutomaticProgression
+  );
+
   window.addEventListener("storage", event => {
     if (!event.key || Object.values(STORAGE).flat().includes(event.key)) {
-      render();
+      syncAutomaticProgression();
     }
   });
 })();

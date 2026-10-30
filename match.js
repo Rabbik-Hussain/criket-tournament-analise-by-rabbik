@@ -178,7 +178,7 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
   state.players = players.data;
   state.tournaments = tournaments.data;
 
-  // কেবল বর্তমান ক্রিকেট টিমের সঙ্গে যুক্ত ম্যাচ দেখাবে।
+  // শুধু Ongoing টুর্নামেন্টের ম্যাচ দেখাবে।
   const cricketTeamIds = new Set(
     state.teams.map(team => idOf(team)).filter(Boolean)
   );
@@ -187,7 +187,15 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
     const team1Id = teamIdOf(match, 1);
     const team2Id = teamIdOf(match, 2);
 
+    // ম্যাচটি কোন টুর্নামেন্টের তা খুঁজে বের করো।
+    const tournament = getTournament(match);
+
+    // শুধু Ongoing টুর্নামেন্ট অনুমোদিত।
+    const isOngoingTournament =
+      String(tournament?.status || "").trim().toLowerCase() === "ongoing";
+
     return Boolean(
+      isOngoingTournament &&
       team1Id &&
       team2Id &&
       team1Id !== team2Id &&
@@ -387,20 +395,17 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
     draft.innings = [];
   }
 
-  // সব ইনিংসের বৈধ বলের সংখ্যা পরীক্ষা করো।
-  const legalBallsRecorded = draft.innings.reduce(
-    (total, innings) =>
-      total + (Number(innings?.legalBalls) || 0),
-    0
-  );
+  // Tournament Setup থেকে সর্বশেষ ওভার সংগ্রহ।
+  const latestOvers = getOvers(match);
 
-  // ম্যাচ শুরু হয়নি এবং কোনো বল রেকর্ড হয়নি:
-  // Tournament Setup-এর সর্বশেষ ওভার নাও।
+  // ম্যাচ Completed না হলে সর্বশেষ ওভার কার্যকর হবে।
+  // এতে Setup এবং Live—দুই অবস্থাতেই পরিবর্তন কাজ করবে।
   if (
-    draft.phase === "setup" &&
-    legalBallsRecorded === 0
+    draft.phase !== "completed" &&
+    Number.isFinite(Number(latestOvers)) &&
+    Number(latestOvers) > 0
   ) {
-    draft.oversPerInnings = getOvers(match);
+    draft.oversPerInnings = Number(latestOvers);
   }
 
   return draft;
@@ -481,6 +486,7 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
                 const live = match.liveData;
                 const firstScore = live?.innings?.[0];
                 const secondScore = live?.innings?.[1];
+                const resultText = live?.result || match.result || "";
                 return `
                   <button class="mc-fixture ${id === state.selectedMatchId ? "is-selected" : ""}"
                     data-action="select-match" data-id="${esc(id)}">
@@ -501,6 +507,9 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
 )}
                     <span class="mc-fixture-score">${secondScore ? `${secondScore.runs}/${secondScore.wickets}` : "—"}</span>
                     <small>${esc(match.date ?? match.matchDate ?? "Date not set")}</small>
+                    ${status === "Completed" && resultText
+  ? `<small class="mc-fixture-result">${esc(resultText)}</small>`
+  : ""}
                   </button>`;
               }).join("") : `<div class="mc-empty">No scheduled matches found. Generate fixtures from Standing & Playoffs first.</div>`}
             </div>
@@ -518,9 +527,14 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
       </div>`;
   }
 
- function renderSelectedMatch(match) {
+function renderSelectedMatch(match) {
     const draft = state.draft || newDraft(match);
     const status = matchStatus(match);
+
+    // Super Over view আগে চেক করতে হবে
+    if (draft.superOverView === true) {
+      return renderSuperOver(match, draft);
+    }
 
     if (draft.phase === "live" || draft.phase === "completed") {
       return renderLiveMatch(match, draft);
@@ -578,7 +592,11 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
         <div class="mc-match-titlebar">
           <div>
             <span class="mc-match-eyebrow">
-              ${esc(match.round ?? match.stage ?? "Scheduled Match")}
+              ${esc(match.groupName ??
+match.roundName ??
+match.stage ??
+match.round ??
+"Scheduled Match")}
             </span>
 
             <h3 style="
@@ -898,8 +916,22 @@ function renderTeamIdentity(teamId, fallbackName, compact = false) {
             <button class="mc-btn mc-btn-danger" data-action="finish-match">End match</button>
           </div>
         ` : `
-          <div class="mc-result-panel"><h4>Match completed</h4><p>${esc(draft.result || "Result saved.")}</p></div>
-          <div class="mc-action-row"><button class="mc-btn mc-btn-secondary" data-action="scorecard">View scorecard</button></div>
+         <div class="mc-result-panel">
+  <h4>Match completed</h4>
+  <p>${esc(draft.result || "Result saved.")}</p>
+</div>
+
+<div class="mc-action-row">
+  ${!draft.winnerTeamId && draft.result === "Match tied." ? `
+    <button class="mc-btn mc-btn-primary" data-action="start-super-over">
+      🏏 Super Over
+    </button>
+  ` : ""}
+
+  <button class="mc-btn mc-btn-secondary" data-action="scorecard">
+    View scorecard
+  </button>
+</div>
         `}
 
         <details class="mc-scorecard-details">
@@ -1152,11 +1184,24 @@ if (innings.pendingNewBatter) {
     const isLegBye = extra === "legbye";
     const legal = !isWide && !isNoBall;
 
-    const batRuns = isWide || isBye || isLegBye ? 0 : Number(runs || 0);
-    let totalRuns = batRuns;
+   const batRuns = isWide || isBye || isLegBye
+    ? 0
+    : Number(runs || 0);
 
-    if (isWide) totalRuns = 1 + Number(runs || 0);
-    if (isNoBall) totalRuns = 1 + Number(runs || 0);
+let totalRuns = batRuns;
+
+if (isWide) {
+    totalRuns = 1 + Number(runs || 0);
+}
+
+if (isNoBall) {
+    totalRuns = 1 + Number(runs || 0);
+}
+
+// Bye ও Leg Bye-এর রান শুধু দলের স্কোরে যোগ হবে।
+if (isBye || isLegBye) {
+    totalRuns = Number(runs || 0);
+}
 
    innings.runs += totalRuns;
 
@@ -1945,6 +1990,406 @@ if (firstInnings && secondInnings) {
     render();
   }
 
+  function createSuperOverInnings(battingTeamId, bowlingTeamId, round) {
+  const draft = state.draft;
+
+  const battingPlayers = (
+    String(battingTeamId) === String(draft.team1Id)
+      ? draft.setup.team1Players
+      : draft.setup.team2Players
+  ).map(String);
+
+  const bowlingPlayers = (
+    String(bowlingTeamId) === String(draft.team1Id)
+      ? draft.setup.team1Players
+      : draft.setup.team2Players
+  ).map(String);
+
+  if (battingPlayers.length < 3 || !bowlingPlayers.length) {
+    notify("Super Over-এর জন্য প্রতি দলে অন্তত ৩ জন ব্যাটার এবং ১ জন বোলার নির্বাচন থাকতে হবে।");
+    return null;
+  }
+
+  const innings = inningsTemplate(
+    battingTeamId,
+    bowlingTeamId,
+    battingPlayers[0],
+    battingPlayers[1],
+    bowlingPlayers[0]
+  );
+
+  innings.availableBatterCount = battingPlayers.length;
+  innings.superOverBatters = battingPlayers;
+  innings.superOverRound = round;
+  innings.superOver = true;
+
+  return innings;
+}
+
+function startSuperOverRound() {
+  const draft = state.draft;
+  if (!draft || draft.phase !== "completed") return;
+
+  const first = draft.innings[0];
+  const second = draft.innings[1];
+
+  if (!first || !second || first.runs !== second.runs) {
+    return notify("শুধু টাই হওয়া ম্যাচেই Super Over শুরু করা যাবে।");
+  }
+
+  const rounds = Array.isArray(draft.superOvers)
+    ? draft.superOvers
+    : [];
+
+  const roundNumber = rounds.length + 1;
+
+  // প্রতিটি নতুন Super Over-এ মূল ম্যাচের প্রথম ইনিংসের
+  // ব্যাটিং দলই প্রথমে ব্যাট করবে।
+  const firstBattingId = first.battingTeamId;
+  const firstBowlingId = second.battingTeamId;
+
+  const firstSuperInnings = createSuperOverInnings(
+    firstBattingId,
+    firstBowlingId,
+    roundNumber
+  );
+
+  if (!firstSuperInnings) return;
+
+  const round = {
+    number: roundNumber,
+    innings: [firstSuperInnings],
+    currentInnings: 0,
+    complete: false,
+    winnerTeamId: null,
+    result: ""
+  };
+
+  rounds.push(round);
+
+  draft.superOvers = rounds;
+  draft.activeSuperOverRound = rounds.length - 1;
+  draft.superOverView = true;
+
+  state.notice = `Super Over ${roundNumber} started.`;
+  persistDraft();
+  render();
+}
+
+function activeSuperOverRound() {
+  const draft = state.draft;
+  if (!draft || !Array.isArray(draft.superOvers)) return null;
+
+  return draft.superOvers[draft.activeSuperOverRound] || null;
+}
+
+function activeSuperOverInnings() {
+  const round = activeSuperOverRound();
+  if (!round) return null;
+
+  return round.innings[round.currentInnings] || null;
+}
+
+function finishSuperOverInnings() {
+  const draft = state.draft;
+  const round = activeSuperOverRound();
+  const innings = activeSuperOverInnings();
+
+  if (!draft || !round || !innings) return;
+
+  innings.complete = true;
+
+  if (round.currentInnings === 0) {
+    const secondInnings = createSuperOverInnings(
+      innings.bowlingTeamId,
+      innings.battingTeamId,
+      round.number
+    );
+
+    if (!secondInnings) return;
+
+    round.innings.push(secondInnings);
+    round.currentInnings = 1;
+
+    state.notice = `Super Over ${round.number}: Second team batting.`;
+    persistDraft();
+    render();
+    return;
+  }
+
+  const first = round.innings[0];
+  const second = round.innings[1];
+
+  if (first.runs > second.runs) {
+    round.winnerTeamId = first.battingTeamId;
+  } else if (second.runs > first.runs) {
+    round.winnerTeamId = second.battingTeamId;
+  } else {
+    round.winnerTeamId = null;
+    round.result = "Super Over tied.";
+    round.complete = true;
+
+    // Super Over টাই হলে ম্যাচের বিজয়ী এখনো নির্ধারিত নয়।
+    draft.superOverView = true;
+    state.notice = `Super Over ${round.number} tied. Start another Super Over.`;
+
+    persistDraft();
+    render();
+    return;
+  }
+
+  round.complete = true;
+
+  const winnerName = round.winnerTeamId === draft.team1Id
+    ? draft.team1Name
+    : draft.team2Name;
+
+  round.result = `${winnerName} won Super Over ${round.number}.`;
+
+  // চূড়ান্ত বিজয়ী মূল ম্যাচের winnerTeamId-তে সংরক্ষণ।
+  draft.winnerTeamId = round.winnerTeamId;
+  draft.result = `${winnerName} won the match in Super Over ${round.number}.`;
+
+  // মূল ম্যাচ Completed-ই থাকবে।
+  draft.phase = "completed";
+  draft.superOverView = false;
+
+  persistDraft();
+
+  state.notice = draft.result;
+  render();
+
+  // Standings / Knockout progression-কে আপডেট জানানো।
+  window.dispatchEvent(new Event("matchcraft:datachange"));
+  window.dispatchEvent(new Event("matchcraft:matches-updated"));
+}
+
+function recordSuperOverBall({ runs = 0, wicket = false, extra = "" } = {}) {
+  const draft = state.draft;
+  const round = activeSuperOverRound();
+  const innings = activeSuperOverInnings();
+
+  if (!draft || !round || !innings || innings.complete || round.complete) {
+    return;
+  }
+
+  const strikerId = String(innings.strikerId);
+  const nonStrikerId = String(innings.nonStrikerId);
+  const bowlerId = String(innings.bowlerId);
+
+  const batter = ensureBatter(innings, strikerId);
+  const bowler = ensureBowler(innings, bowlerId);
+
+  const isWide = extra === "wide";
+  const isNoBall = extra === "noball";
+  const legal = !isWide && !isNoBall;
+
+  const batRuns = Number(runs || 0);
+  let totalRuns = batRuns;
+
+  if (isWide || isNoBall) totalRuns += 1;
+
+  innings.runs += totalRuns;
+  bowler.runs += totalRuns;
+
+  if (!isWide) {
+    batter.runs += batRuns;
+    batter.balls += 1;
+
+    if (batRuns === 4) batter.fours += 1;
+    if (batRuns === 6) batter.sixes += 1;
+  }
+
+  if (legal) {
+    innings.legalBalls += 1;
+    bowler.legalBalls += 1;
+  }
+
+  if (wicket) {
+    innings.wickets += 1;
+    batter.out = true;
+    batter.dismissal = "Out";
+    bowler.wickets += 1;
+  }
+
+  innings.events.push({
+    runs: totalRuns,
+    batterRuns: batRuns,
+    extra,
+    wicket,
+    legal,
+    label: wicket ? "W" : isWide ? "Wd" : isNoBall ? "Nb" : String(batRuns),
+    strikerId,
+    bowlerId,
+    timestamp: new Date().toISOString()
+  });
+
+  if (batRuns % 2 === 1) {
+    const old = innings.strikerId;
+    innings.strikerId = innings.nonStrikerId;
+    innings.nonStrikerId = old;
+  }
+
+  const battingPlayers = innings.superOverBatters || [];
+  const nextBatter = battingPlayers.find(id => {
+    return !innings.batters[String(id)]?.out &&
+      String(id) !== String(innings.strikerId) &&
+      String(id) !== String(innings.nonStrikerId);
+  });
+
+  if (wicket && innings.wickets < 2 && nextBatter) {
+    innings.strikerId = nextBatter;
+  }
+
+  // Super Over: সর্বোচ্চ ৬টি legal ball অথবা ২টি wicket।
+  if (innings.legalBalls >= 6 || innings.wickets >= 2) {
+    finishSuperOverInnings();
+    return;
+  }
+
+  // দ্বিতীয় দলের লক্ষ্য অতিক্রম করলেও ইনিংস শেষ।
+  if (round.currentInnings === 1) {
+    const target = Number(round.innings[0].runs) + 1;
+
+    if (innings.runs >= target) {
+      finishSuperOverInnings();
+      return;
+    }
+  }
+
+  persistDraft();
+  render();
+}
+
+function renderSuperOver(match, draft) {
+  const round = activeSuperOverRound();
+
+  if (!round) {
+    return `
+      <div class="mc-live-match">
+        <div class="mc-result-panel">
+          <h4>Super Over</h4>
+          <p>কোনো Super Over রাউন্ড পাওয়া যায়নি।</p>
+        </div>
+        <button class="mc-btn mc-btn-secondary" data-action="back-to-match">
+          Back to Match
+        </button>
+      </div>
+    `;
+  }
+
+  const innings = activeSuperOverInnings();
+  const first = round.innings[0];
+  const second = round.innings[1];
+
+  const battingName = innings.battingTeamId === draft.team1Id
+    ? draft.team1Name
+    : draft.team2Name;
+
+  const bowlingName = innings.bowlingTeamId === draft.team1Id
+    ? draft.team1Name
+    : draft.team2Name;
+
+  const striker = getPlayer(innings.strikerId);
+  const nonStriker = getPlayer(innings.nonStrikerId);
+  const bowler = getPlayer(innings.bowlerId);
+
+  const recentBalls = innings.events.slice(-6);
+
+  return `
+    <div class="mc-live-match mc-super-over">
+      <div class="mc-match-titlebar">
+        <div>
+          <span class="mc-match-eyebrow">MATCHCRAFT CRICKET</span>
+          <h3>🏏 Super Over ${round.number}</h3>
+          <p>${esc(draft.team1Name)} vs ${esc(draft.team2Name)}</p>
+        </div>
+        <span class="mc-status mc-status-live">
+          ${round.complete ? "Completed" : "SUPER OVER"}
+        </span>
+      </div>
+
+      <div class="mc-super-over-score">
+        <span>${esc(battingName)} batting</span>
+        <strong>${innings.runs}/${innings.wickets}</strong>
+        <small>Overs ${Math.floor(innings.legalBalls / 6)}.${innings.legalBalls % 6} / 1</small>
+        <small>Bowling: ${esc(bowlingName)}</small>
+        ${round.currentInnings === 1
+          ? `<small>Target: ${Number(first.runs) + 1}</small>`
+          : ""}
+      </div>
+
+      <div class="mc-super-over-summary">
+        <div>
+          <strong>${esc(first.battingTeamId === draft.team1Id ? draft.team1Name : draft.team2Name)}</strong>
+          <span>${first.runs}/${first.wickets}</span>
+        </div>
+        ${second ? `
+          <div>
+            <strong>${esc(second.battingTeamId === draft.team1Id ? draft.team1Name : draft.team2Name)}</strong>
+            <span>${second.runs}/${second.wickets}</span>
+          </div>
+        ` : ""}
+      </div>
+
+      ${round.complete ? `
+        <div class="mc-result-panel">
+          <h4>${esc(round.result)}</h4>
+          <p>${round.winnerTeamId ? "Winner saved." : "দুই দলের রান সমান। আবার Super Over শুরু করো।"}</p>
+        </div>
+
+        <div class="mc-action-row">
+          ${!round.winnerTeamId ? `
+            <button class="mc-btn mc-btn-primary" data-action="start-super-over">
+              Start Super Over ${round.number + 1}
+            </button>
+          ` : ""}
+          <button class="mc-btn mc-btn-secondary" data-action="back-to-match">
+            Back to Match Result
+          </button>
+        </div>
+      ` : `
+        <div class="mc-super-over-players">
+          <p>Striker: <strong>${esc(nameOf(striker || {}))}</strong></p>
+          <p>Non-striker: <strong>${esc(nameOf(nonStriker || {}))}</strong></p>
+          <p>Bowler: <strong>${esc(nameOf(bowler || {}))}</strong></p>
+        </div>
+
+        <div class="mc-over-display">
+          <strong>Recent balls</strong>
+          <div class="mc-ball-list">
+            ${recentBalls.length
+              ? recentBalls.map(ball => `
+                <span class="mc-ball ${ball.wicket ? "mc-ball-wicket" : ""}">
+                  ${esc(ball.label)}
+                </span>
+              `).join("")
+              : `<span class="mc-muted">No balls recorded yet</span>`}
+          </div>
+        </div>
+
+        <section class="mc-scoring-section">
+          <h4>Record Super Over ball</h4>
+          <div class="mc-run-buttons">
+            ${[0, 1, 2, 3, 4, 6].map(run => `
+              <button class="mc-run-btn ${run === 4 || run === 6 ? "mc-run-boundary" : ""}"
+                data-action="super-over-runs" data-runs="${run}">
+                ${run}
+              </button>
+            `).join("")}
+          </div>
+
+          <div class="mc-extra-buttons">
+            <button class="mc-btn mc-btn-secondary" data-action="super-over-wide">Wide</button>
+            <button class="mc-btn mc-btn-secondary" data-action="super-over-noball">No-ball</button>
+            <button class="mc-btn mc-btn-danger" data-action="super-over-wicket">Wicket</button>
+          </div>
+        </section>
+      `}
+    </div>
+  `;
+}
+
   function notify(message) {
     state.notice = message;
     render();
@@ -1984,6 +2429,59 @@ if (firstInnings && secondInnings) {
         completeMatch();
       }
     }
+
+    if (action === "start-super-over") {
+  startSuperOverRound();
+  return;
+}
+
+if (action === "back-to-match") {
+  state.draft.superOverView = false;
+  persistDraft();
+  render();
+  return;
+}
+
+if (action === "super-over-runs") {
+  recordSuperOverBall({
+    runs: Number(button.dataset.runs || 0)
+  });
+  return;
+}
+
+if (action === "super-over-wide") {
+  recordSuperOverBall({
+    extra: "wide",
+    runs: 0
+  });
+  return;
+}
+
+if (action === "super-over-noball") {
+  const input = prompt("No-ball-এর অতিরিক্ত রান লিখুন (০–৬):", "0");
+
+  if (input === null) return;
+
+  const runs = Number(input);
+
+  if (!Number.isInteger(runs) || runs < 0 || runs > 6) {
+    notify("০ থেকে ৬-এর মধ্যে বৈধ রান দিন।");
+    return;
+  }
+
+  recordSuperOverBall({
+    extra: "noball",
+    runs
+  });
+  return;
+}
+
+if (action === "super-over-wicket") {
+  recordSuperOverBall({
+    wicket: true
+  });
+  return;
+}
 
     if (action === "scorecard") {
       state.notice = "Full scorecard is available in the innings section below.";

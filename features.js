@@ -81,6 +81,49 @@
         }
     }
 
+    function saveTournamentGroupData(tournament, groupDefinitions) {
+    try {
+        const tournaments = readTournaments();
+        const tournamentId = getId(tournament);
+
+        const index = tournaments.findIndex(item =>
+            getId(item) === tournamentId
+        );
+
+        if (index === -1) {
+            throw new Error("Tournament record not found.");
+        }
+
+        const groupAssignments = {};
+
+        groupDefinitions.forEach(group => {
+            group.teamIds.forEach(teamId => {
+                groupAssignments[String(teamId)] = group.name;
+            });
+        });
+
+        tournaments[index] = {
+            ...tournaments[index],
+            numberOfGroups: groupDefinitions.length,
+            groupAssignments,
+            groupNames: groupDefinitions.map(group => group.name),
+            groupPairingGenerated: true,
+            updatedAt: new Date().toISOString()
+        };
+
+        localStorage.setItem(
+            STORAGE.tournaments,
+            JSON.stringify(tournaments)
+        );
+
+        return true;
+
+    } catch (error) {
+        console.error("[Features] Group data save failed:", error);
+        throw error;
+    }
+}
+
     function readTournaments() {
         return readArray(STORAGE.tournaments);
     }
@@ -229,15 +272,15 @@
     }
 
     function getTournamentFormat(tournament) {
-        return String(
-            tournament?.format ??
-            tournament?.tournamentFormat ??
-            tournament?.tournamentType ??
-            tournament?.type ??
-            tournament?.typeLabel ??
-            ""
-        ).trim();
-    }
+    return String(
+        tournament?.tournamentFormat ??
+        tournament?.format ??
+        tournament?.tournamentType ??
+        tournament?.type ??
+        tournament?.typeLabel ??
+        ""
+    ).trim();
+}
 
     function normalizeText(value) {
         return String(value ?? "")
@@ -248,33 +291,42 @@
     }
 
     function normalizeFormat(value) {
-        const format = normalizeText(value);
+    const format = normalizeText(value);
 
-        if (
+    // Group + Knockout-কে আগে শনাক্ত করতে হবে।
+    // কারণ এই নামে "knockout" এবং "group" দুটোই আছে।
+    if (
+        format.includes("group") &&
+        (
             format.includes("knockout") ||
             format.includes("knock out") ||
             format.includes("elimination")
-        ) {
-            return "knockout";
-        }
-
-        if (
-            format.includes("league") ||
-            format.includes("round robin") ||
-            format.includes("round-robin")
-        ) {
-            return "league";
-        }
-
-        if (
-            format.includes("group") ||
-            format.includes("mixed")
-        ) {
-            return "group";
-        }
-
-        return "custom";
+        )
+    ) {
+        return "group-knockout";
     }
+
+    if (
+        format.includes("knockout") ||
+        format.includes("knock out") ||
+        format.includes("elimination")
+    ) {
+        return "knockout";
+    }
+
+    if (
+        format.includes("league") ||
+        format.includes("round robin")
+    ) {
+        return "league";
+    }
+
+    if (format.includes("group") || format.includes("mixed")) {
+        return "group";
+    }
+
+    return "custom";
+}
 
     /* =====================================================
        TOURNAMENT TEAMS
@@ -537,26 +589,29 @@
         return `${pair[0]}::${pair[1]}::${round ?? ""}`;
     }
 
-    function getExistingPairKeys(fixtures) {
-        const keys = new Set();
+   function getExistingPairKeys(fixtures) {
+    const keys = new Set();
 
-        fixtures.forEach(fixture => {
-            const a = getHomeTeamId(fixture);
-            const b = getAwayTeamId(fixture);
+    fixtures.forEach(fixture => {
+        const a = getHomeTeamId(fixture);
+        const b = getAwayTeamId(fixture);
 
-            if (!a || !b) return;
+        if (!a || !b) return;
 
-            const round =
-                fixture.round ??
-                fixture.stage ??
-                fixture.roundName ??
-                "";
+        const stage = normalizeText(
+            fixture.stage ??
+            fixture.roundName ??
+            fixture.round ??
+            ""
+        );
 
-            keys.add(makePairKey(a, b, round));
-        });
+        const pair = [a, b].sort();
 
-        return keys;
-    }
+        keys.add(`${pair[0]}::${pair[1]}::${stage}`);
+    });
+
+    return keys;
+}
 
     function makeRoundRobinPairs(teams) {
         const participants = teams.map(team => ({
@@ -611,20 +666,154 @@
         return pairs;
     }
 
- function makeKnockoutPairs(teams, standings = []) {
+  function makeGroupKnockoutPairs(teams, tournament) {
+    const totalTeams = teams.length;
+
+    const groupCount = Number(
+        tournament?.numberOfGroups ??
+        tournament?.groupCount ??
+        0
+    );
+
+    if (
+        !Number.isInteger(groupCount) ||
+        groupCount < 2 ||
+        groupCount > totalTeams
+    ) {
+        throw new Error("সঠিক Group সংখ্যা নির্বাচন করা হয়নি।");
+    }
+
+    // প্রতিটি গ্রুপে সমান সংখ্যক দল থাকতে হবে।
+    if (totalTeams % groupCount !== 0) {
+        throw new Error(
+            `মোট ${totalTeams}টি দলকে ${groupCount}টি সমান গ্রুপে ভাগ করা যাচ্ছে না। Group সংখ্যা পরিবর্তন করো।`
+        );
+    }
+
+    const groupNames = Array.from(
+        { length: groupCount },
+        (_, index) => `Group ${String.fromCharCode(65 + index)}`
+    );
+
+    const savedAssignments = tournament?.groupAssignments || {};
+
+    const savedGroupNames = Array.isArray(tournament?.groupNames)
+        ? tournament.groupNames
+        : [];
+
+    const savedAssignmentValid =
+        savedGroupNames.length === groupCount &&
+        teams.every(team =>
+            groupNames.includes(
+                String(savedAssignments[getId(team)] || "")
+            )
+        );
+
+    const groups = groupNames.map(name => ({
+        name,
+        teams: []
+    }));
+
+    if (savedAssignmentValid) {
+        // আগে সংরক্ষিত গ্রুপ থাকলে সেটিই ব্যবহার করবে।
+        teams.forEach(team => {
+            const groupName = savedAssignments[getId(team)];
+            const group = groups.find(item => item.name === groupName);
+
+            if (group) {
+                group.teams.push({
+                    id: getId(team),
+                    name: getTeamName(team)
+                });
+            }
+        });
+    } else {
+        // নতুন গ্রুপ তৈরি: দলগুলো ধারাবাহিকভাবে ভাগ হবে।
+        const teamsPerGroup = totalTeams / groupCount;
+
+        teams.forEach((team, index) => {
+            const groupIndex = Math.floor(index / teamsPerGroup);
+
+            groups[groupIndex].teams.push({
+                id: getId(team),
+                name: getTeamName(team)
+            });
+        });
+    }
+
+    // Group Assignment সংরক্ষণ করার আগে পরীক্ষা:
+    // কোনো Group Stage ম্যাচ Live/Completed থাকলে
+    // পুরোনো গ্রুপের বিন্যাস পরিবর্তন করা যাবে না।
+    const existingFixtures = getTournamentFixtures(tournament);
+
+    const protectedGroupFixtures = existingFixtures.filter(fixture => {
+        const isGroup =
+            fixture.bracketStage === "group" ||
+            Boolean(fixture.groupName) ||
+            Boolean(fixture.group);
+
+        return isGroup && isProtectedFixture(fixture);
+    });
+
+    if (protectedGroupFixtures.length && !savedAssignmentValid) {
+        throw new Error(
+            "Group Stage-এ Live বা Completed ম্যাচ আছে। ফলাফল নষ্ট হওয়ার ঝুঁকি থাকায় গ্রুপ পুনর্বিন্যাস করা হয়নি।"
+        );
+    }
+
+    // Tournament record-এ গ্রুপ ও দলগুলোর সম্পর্ক সংরক্ষণ।
+    const groupDefinitions = groups.map(group => ({
+        name: group.name,
+        teamIds: group.teams.map(team => team.id)
+    }));
+
+    saveTournamentGroupData(tournament, groupDefinitions);
+
+    // প্রত্যেক গ্রুপের ভিতরে Round Robin Pairing।
+    const pairs = [];
+
+    groups.forEach(group => {
+        const groupPairs = makeRoundRobinPairs(group.teams);
+
+        groupPairs.forEach(pair => {
+            pairs.push({
+                ...pair,
+
+                groupName: group.name,
+                groupCount,
+
+                groupTeamIds: group.teams.map(team => team.id),
+
+                stage: `${group.name} · Group Stage · Round ${pair.round}`,
+
+                bracketStage: "group",
+                matchType: "group-knockout"
+            });
+        });
+    });
+
+    pairs.groupCount = groupCount;
+    pairs.groupDefinitions = groupDefinitions;
+
+    return pairs;
+}
+
+function makeKnockoutPairs(teams, standings = []) {
     if (!Array.isArray(teams) || teams.length < 2) return [];
 
-    const getId = team => String(team?.id ?? team?._id ?? "");
-    const getName = team => String(team?.name ?? team?.teamName ?? "");
-
-    // Points Table-এর র‍্যাঙ্ক অনুযায়ী টুর্নামেন্টের দল সাজানো।
     const rankMap = new Map();
 
     standings.forEach((row, index) => {
-        rankMap.set(
-            String(row.id ?? row._id ?? ""),
-            { rank: index + 1, points: Number(row.points) || 0 }
+        const id = String(
+            row.id ?? row.teamId ?? row._id ?? ""
         );
+
+        if (id) {
+            rankMap.set(id, {
+                rank: index + 1,
+                points: Number(row.points) || 0
+            });
+        }
     });
 
     const rankedTeams = [...teams].sort((a, b) => {
@@ -634,119 +823,159 @@
         if (ra && rb) return ra.rank - rb.rank;
         if (ra) return -1;
         if (rb) return 1;
-        return getName(a).localeCompare(getName(b));
+
+        return getTeamName(a).localeCompare(getTeamName(b));
     });
 
     const count = rankedTeams.length;
-    const nextPower = 2 ** Math.ceil(Math.log2(count));
-    const byeCount = nextPower - count;
-    const preliminary = rankedTeams.slice(byeCount);
-    const byeTeams = rankedTeams.slice(0, byeCount);
+
+    if (count === 2) {
+        return [{
+            teamA: rankedTeams[0],
+            teamB: rankedTeams[1],
+            round: 1,
+            stage: "Final",
+            bracketStage: "final",
+            knockoutRound: 1,
+            progressionKey: "final",
+            seedA: 1,
+            seedB: 2,
+            matchType: "knockout"
+        }];
+    }
+
+    const bracketSize = 2 ** Math.ceil(Math.log2(count));
+    const byeCount = bracketSize - count;
+    const preliminaryCount = byeCount;
 
     const pairs = [];
 
-    // দুই দল থাকলে সরাসরি ফাইনাল।
-    if (count === 2) {
-        pairs.push({
-            teamA: rankedTeams[0],
-            teamB: rankedTeams[1],
-            round: 3,
-            stage: "Final",
-            bracketStage: "final",
-            matchType: "knockout"
-        });
-        return pairs;
-    }
+    // যেসব দল সরাসরি পরের রাউন্ডে যাবে
+    const byeTeams = rankedTeams.slice(0, byeCount);
 
-    // প্রথম রাউন্ড: উচ্চ সিড বনাম নিম্ন সিড।
-    for (let i = 0; i < preliminary.length / 2; i++) {
-        const teamA = preliminary[i];
-        const teamB = preliminary[preliminary.length - 1 - i];
+    // Preliminary-তে অংশগ্রহণকারী দল
+    const preliminaryTeams = rankedTeams.slice(byeCount);
+
+    for (let i = 0; i < preliminaryCount / 2; i++) {
+        const teamA = preliminaryTeams[i];
+        const teamB = preliminaryTeams[preliminaryTeams.length - 1 - i];
 
         pairs.push({
             teamA,
             teamB,
             round: 1,
-            stage: "Knockout Round 1",
+            stage: "Preliminary Round",
             bracketStage: "preliminary",
+            knockoutRound: 1,
+            progressionKey: `preliminary-${i + 1}`,
             seedA: rankedTeams.indexOf(teamA) + 1,
             seedB: rankedTeams.indexOf(teamB) + 1,
             matchType: "knockout"
         });
     }
 
-    // পরবর্তী রাউন্ডে সরাসরি যাওয়া দলগুলো।
     pairs.byeTeams = byeTeams;
     pairs.rankedTeams = rankedTeams;
-    pairs.nextPowerOfTwo = nextPower;
+    pairs.bracketSize = bracketSize;
+    pairs.byeCount = byeCount;
 
     return pairs;
 }
 
     function createFixture(pair, tournament, index, existingFixtures) {
-        const now = new Date().toISOString();
+    const now = new Date().toISOString();
 
-        const roundLabel = pair.stage || `Round ${pair.round || 1}`;
+    const roundLabel = pair.stage || `Round ${pair.round || 1}`;
 
-        const id = (
-            globalThis.crypto &&
-            typeof globalThis.crypto.randomUUID === "function"
-        )
-            ? globalThis.crypto.randomUUID()
-            : `mc-fixture-${Date.now()}-${index}-${Math.random()
-                .toString(36).slice(2, 8)}`;
+    const id = (
+        globalThis.crypto &&
+        typeof globalThis.crypto.randomUUID === "function"
+    )
+        ? globalThis.crypto.randomUUID()
+        : `mc-fixture-${Date.now()}-${index}-${Math.random()
+            .toString(36).slice(2, 8)}`;
 
-        return {
-            id,
+    const isGroupStage = pair.bracketStage === "group";
+    const isKnockout = !isGroupStage && (
+        pair.bracketStage ||
+        pair.knockoutRound ||
+        pair.progressionKey
+    );
 
-            tournamentId: getId(tournament),
-            tournamentName: getTournamentName(tournament),
+    return {
+        id,
 
-            homeTeamId: pair.teamA.id,
-            homeTeamName: pair.teamA.name,
-            awayTeamId: pair.teamB.id,
-            awayTeamName: pair.teamB.name,
+        tournamentId: getId(tournament),
+        tournamentName: getTournamentName(tournament),
 
-            teamAId: pair.teamA.id,
-            teamAName: pair.teamA.name,
-            teamBId: pair.teamB.id,
-            teamBName: pair.teamB.name,
+        homeTeamId: pair.teamA.id,
+        homeTeamName: pair.teamA.name,
+        awayTeamId: pair.teamB.id,
+        awayTeamName: pair.teamB.name,
 
-            team1Id: pair.teamA.id,
-            team1Name: pair.teamA.name,
-            team2Id: pair.teamB.id,
-            team2Name: pair.teamB.name,
+        teamAId: pair.teamA.id,
+        teamAName: pair.teamA.name,
+        teamBId: pair.teamB.id,
+        teamBName: pair.teamB.name,
 
-            round: pair.round || 1,
-            roundName: roundLabel,
-            stage: roundLabel,
-            bracketStage: pair.bracketStage || "",
-seedA: pair.seedA ?? null,
-seedB: pair.seedB ?? null,
-            matchNumber: existingFixtures.length + index + 1,
-            matchType: getTournamentFormat(tournament),
+        team1Id: pair.teamA.id,
+        team1Name: pair.teamA.name,
+        team2Id: pair.teamB.id,
+        team2Name: pair.teamB.name,
 
-            date: "",
-            matchDate: "",
-            time: "",
-            matchTime: "",
+        round: pair.round || 1,
+        roundName: roundLabel,
+        stage: roundLabel,
 
-            venue: "",
-            venueId: "",
-            groundId: "",
-            groundName: "",
+        bracketStage: pair.bracketStage || "",
+        groupStage: isGroupStage,
+        knockoutStage: Boolean(isKnockout),
 
-            notes: "",
-            status: "Upcoming",
-            completed: false,
-            isLive: false,
+        groupName: pair.groupName || "",
+        groupCount: pair.groupCount || null,
+        groupTeamIds: Array.isArray(pair.groupTeamIds)
+            ? pair.groupTeamIds
+            : [],
 
-            source: "MATCHCRAFT_FEATURES",
-            generatedFixture: true,
-            createdAt: now,
-            updatedAt: now
-        };
-    }
+        qualificationPosition: pair.qualificationPosition || null,
+        seedA: pair.seedA ?? null,
+        seedB: pair.seedB ?? null,
+
+        matchNumber: existingFixtures.length + index + 1,
+        matchType: isGroupStage
+            ? "Group Stage"
+            : (getTournamentFormat(tournament) || "Knockout"),
+
+        date: "",
+        matchDate: "",
+        time: "",
+        matchTime: "",
+
+        venue: "",
+        venueId: "",
+        groundId: "",
+        groundName: "",
+
+        notes: "",
+        status: "Upcoming",
+        completed: false,
+        isLive: false,
+
+        source: "MATCHCRAFT_FEATURES",
+        generatedFixture: true,
+
+        knockoutRound: pair.knockoutRound || null,
+        knockoutRoundIndex: pair.knockoutRoundIndex ?? null,
+        progressionKey: pair.progressionKey || "",
+
+        winnerTeamId: "",
+        winnerTeamName: "",
+        sourceFixtureIds: pair.sourceFixtureIds || [],
+
+        createdAt: now,
+        updatedAt: now
+    };
+}
 
     /* =====================================================
        PAGE HELPERS
@@ -918,13 +1147,29 @@ seedB: pair.seedB ?? null,
                 <div class="features-footer-note">
                     <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
                     <span>
-                        Existing fixtures are preserved. Generating again will add
-                        only pairings that do not already exist for the same teams
-                        and round. Knockout rounds after Round 1 require winner
-                        progression and are not generated automatically here.
+                        Existing fixtures are preserved. Group Stage matches are
+generated here. After all Group Stage matches are completed,
+qualified teams and Knockout rounds are generated automatically.
                     </span>
                 </div>
             </section>
+
+            <section class="features-panel" id="featuresKnockoutPanel">
+    <div class="features-panel-heading">
+        <div>
+            <h2>Knockout Schedule</h2>
+            <p>Qualified teams, byes and knockout match progression.</p>
+        </div>
+        <i class="fa-solid fa-trophy" aria-hidden="true"></i>
+    </div>
+
+    <div id="featuresKnockoutList">
+        <div class="features-empty">
+            <h3>Knockout Schedule Not Available</h3>
+            <p>Generate the Group Stage schedule and complete its matches first.</p>
+        </div>
+    </div>
+</section>
 
             <section class="features-panel">
                 <div class="features-panel-heading">
@@ -1136,46 +1381,148 @@ seedB: pair.seedB ?? null,
             return;
         }
 
-        preview.innerHTML = teams.map((team, index) => {
-            const teamId = getId(team);
-            const teamName = getTeamName(team);
-            const logo = typeof team.logo === "string"
-                ? team.logo.trim()
-                : "";
+     const isGroupKnockout =
+    normalizeFormat(getTournamentFormat(tournament)) === "group-knockout";
 
-            return `
-                <article class="features-team-card">
-                    <div class="features-team-avatar">
-                        ${
-                            logo
-                                ? `
-                                    <img
-                                        src="${escapeHTML(logo)}"
-                                        alt="${escapeHTML(teamName)} logo"
+if (isGroupKnockout) {
+    const groupCount = Number(
+        tournament.numberOfGroups ??
+        tournament.groupCount ??
+        0
+    );
+
+    const groupNames = Array.from(
+        { length: groupCount },
+        (_, index) => `Group ${String.fromCharCode(65 + index)}`
+    );
+
+    const assignments = tournament.groupAssignments || {};
+
+    const validSavedGroups =
+        Array.isArray(tournament.groupNames) &&
+        tournament.groupNames.length === groupCount &&
+        teams.every(team =>
+            groupNames.includes(
+                String(assignments[getId(team)] || "")
+            )
+        );
+
+    const teamsPerGroup =
+        groupCount > 0 && teams.length % groupCount === 0
+            ? teams.length / groupCount
+            : 0;
+
+    const groups = groupNames.map((groupName, groupIndex) => {
+        const groupTeams = validSavedGroups
+            ? teams.filter(team =>
+                String(assignments[getId(team)] || "") === groupName
+            )
+            : teams.slice(
+                groupIndex * teamsPerGroup,
+                (groupIndex + 1) * teamsPerGroup
+            );
+
+        return {
+            name: groupName,
+            teams: groupTeams
+        };
+    });
+
+    preview.innerHTML = groups.map(group => `
+        <section class="features-group-card"
+            style="
+                grid-column:1/-1;
+                padding:18px;
+                margin-bottom:12px;
+                border:1px solid rgba(255,255,255,.12);
+                border-radius:14px;
+                background:rgba(255,255,255,.035);
+            ">
+
+            <div style="
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                gap:12px;
+                margin-bottom:14px;
+                flex-wrap:wrap;
+            ">
+                <h3 style="margin:0;font-size:16px;">
+                    <i class="fa-solid fa-people-group"
+                        style="margin-right:8px;"></i>
+                    ${escapeHTML(group.name)}
+                </h3>
+
+                <span class="features-pill">
+                    ${group.teams.length} Teams
+                </span>
+            </div>
+
+            <div style="
+                display:grid;
+                grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+                gap:10px;
+            ">
+                ${group.teams.map((team, index) => `
+                    <article class="features-team-card">
+                        <div class="features-team-avatar">
+                            ${
+                                team.logo
+                                    ? `<img
+                                        src="${escapeHTML(team.logo)}"
+                                        alt="${escapeHTML(getTeamName(team))} logo"
                                         loading="lazy"
-                                        style="
-                                            width:100%;
-                                            height:100%;
-                                            object-fit:cover;
-                                            border-radius:50%;
-                                            display:block;
-                                        "
-                                    >
-                                `
-                                : `
-                                    <i class="fa-solid fa-shield-halved"
-                                        aria-hidden="true"></i>
-                                `
-                        }
-                    </div>
+                                        style="width:100%;height:100%;object-fit:cover;border-radius:50%;"
+                                    >`
+                                    : `<i class="fa-solid fa-shield-halved"
+                                        aria-hidden="true"></i>`
+                            }
+                        </div>
 
-                    <div>
-                        <h4>${escapeHTML(teamName)}</h4>
-                        <p>Team ${index + 1}</p>
-                    </div>
-                </article>
-            `;
-        }).join("");
+                        <div>
+                            <h4>${escapeHTML(getTeamName(team))}</h4>
+                            <p>${escapeHTML(group.name)} · Team ${index + 1}</p>
+                        </div>
+                    </article>
+                `).join("")}
+            </div>
+        </section>
+    `).join("");
+
+} else {
+    preview.innerHTML = teams.map((team, index) => {
+        const teamName = getTeamName(team);
+        const logo = typeof team.logo === "string"
+            ? team.logo.trim()
+            : "";
+
+        return `
+            <article class="features-team-card">
+                <div class="features-team-avatar">
+                    ${
+                        logo
+                            ? `<img
+                                src="${escapeHTML(logo)}"
+                                alt="${escapeHTML(teamName)} logo"
+                                loading="lazy"
+                                style="width:100%;height:100%;object-fit:cover;border-radius:50%;"
+                            >`
+                            : `<i class="fa-solid fa-shield-halved"
+                                aria-hidden="true"></i>`
+                    }
+                </div>
+
+                <div>
+                    <h4>${escapeHTML(teamName)}</h4>
+                    <p>Team ${index + 1}</p>
+                </div>
+            </article>
+        `;
+    }).join("");
+}
+
+renderKnockoutSchedule();
+
     }
 
     /* =====================================================
@@ -1201,6 +1548,8 @@ seedB: pair.seedB ?? null,
             description.textContent =
                 "Select a tournament to view its schedule.";
 
+                renderKnockoutSchedule();
+
             $("#featuresTotalMatches", page).textContent = "0";
             $("#featuresUpcomingMatches", page).textContent = "0";
 
@@ -1222,10 +1571,11 @@ seedB: pair.seedB ?? null,
             `${getTournamentName(tournament)} · ${fixtures.length} saved match(es)`;
 
         if (!fixtures.length) {
-            list.innerHTML = "";
-            empty.hidden = false;
-            return;
-        }
+    list.innerHTML = "";
+    empty.hidden = false;
+    renderKnockoutSchedule();
+    return;
+}
 
         empty.hidden = true;
 
@@ -1327,21 +1677,405 @@ seedB: pair.seedB ?? null,
                 </article>
             `;
         }).join("");
+
+        renderKnockoutSchedule();
+
     }
+
+ function renderKnockoutSchedule() {
+    const page = getPage();
+    if (!page) return;
+
+    const container = $("#featuresKnockoutList", page);
+    const tournament = getSelectedTournament();
+
+    if (!container) return;
+
+    if (!tournament) {
+        container.innerHTML = `
+            <div class="features-empty">
+                <h3>Knockout Schedule Not Available</h3>
+                <p>Select a tournament to view its knockout schedule.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const fixtures = getTournamentFixtures(tournament);
+
+    /*
+     * Statistics.js থেকে তৈরি Knockout fixture শনাক্ত করবে।
+     * Group Stage-এর ম্যাচ এখানে দেখানো হবে না।
+     */
+    const knockoutFixtures = fixtures.filter(fixture => {
+        const stage = normalizeText(
+            fixture.bracketStage ??
+            fixture.stage ??
+            fixture.roundName ??
+            ""
+        );
+
+        const isGroup = (
+            fixture.groupStage === true ||
+            fixture.bracketStage === "group" ||
+            stage === "group" ||
+            stage.includes("group stage") ||
+            Boolean(fixture.groupName)
+        );
+
+        if (isGroup) return false;
+
+        return (
+            fixture.knockoutStage === true ||
+            (
+                fixture.knockoutRoundIndex !== undefined &&
+                fixture.knockoutRoundIndex !== null
+            ) ||
+            (
+                fixture.knockoutRound !== undefined &&
+                fixture.knockoutRound !== null
+            ) ||
+            stage.includes("preliminary") ||
+            stage.includes("quarter") ||
+            stage.includes("semi") ||
+            stage.includes("final") ||
+            stage.includes("knockout")
+        );
+    });
+
+    /*
+     * Statistics.js-এর সংরক্ষিত Knockout State।
+     */
+    const state = tournament.knockoutState || {};
+
+    const qualifiers = Array.isArray(state.qualifiers)
+        ? state.qualifiers
+        : [];
+
+    const byeTeamIds = Array.isArray(state.byeTeamIds)
+        ? state.byeTeamIds.map(String)
+        : [];
+
+    /*
+     * Qualifier-এর ID বের করবে।
+     * Statistics.js-এর বিভিন্ন object structure
+     * থাকলেও যেন কাজ করে।
+     */
+    const getQualifierId = item => {
+        if (item && typeof item === "object") {
+            return String(
+                item.id ??
+                item.teamId ??
+                item._id ??
+                ""
+            );
+        }
+
+        return String(item ?? "");
+    };
+
+    const getQualifierName = item => {
+        if (item && typeof item === "object") {
+            return String(
+                item.name ??
+                item.teamName ??
+                getTeamName(getTeamById(getQualifierId(item)) || {})
+            );
+        }
+
+        const team = getTeamById(item);
+
+        return team
+            ? getTeamName(team)
+            : "Unknown Team";
+    };
+
+    /*
+     * Round-এর ক্রম নির্ধারণ।
+     * knockoutRoundIndex থাকলে সেটিই প্রধান।
+     */
+    const getRoundOrder = fixture => {
+        const roundIndex = Number(fixture.knockoutRoundIndex);
+
+        if (Number.isFinite(roundIndex) && roundIndex > 0) {
+            return roundIndex;
+        }
+
+        const text = normalizeText(
+            fixture.roundName ??
+            fixture.stage ??
+            fixture.bracketStage ??
+            ""
+        );
+
+        if (text.includes("preliminary")) return 1;
+        if (text.includes("quarter")) return 1;
+        if (text.includes("semi")) return 2;
+        if (text.includes("final")) return 3;
+
+        return 99;
+    };
+
+    knockoutFixtures.sort((a, b) => {
+        const difference =
+            getRoundOrder(a) - getRoundOrder(b);
+
+        if (difference !== 0) return difference;
+
+        return Number(a.matchNumber || 0) -
+            Number(b.matchNumber || 0);
+    });
+
+    /*
+     * Qualifier ও Bye-এর তথ্য দেখাবে।
+     */
+    let qualificationMarkup = "";
+
+    if (qualifiers.length) {
+        const byeTeams = qualifiers.filter(item =>
+            byeTeamIds.includes(getQualifierId(item))
+        );
+
+        qualificationMarkup = `
+            <div style="
+                padding:16px;
+                margin-bottom:16px;
+                border:1px solid rgba(255,255,255,.12);
+                border-radius:14px;
+                background:rgba(255,255,255,.035);
+            ">
+                <h3 style="margin:0 0 14px;">
+                    <i class="fa-solid fa-circle-check"></i>
+                    Qualified Teams
+                </h3>
+
+                <div style="
+                    display:grid;
+                    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+                    gap:10px;
+                ">
+                    ${qualifiers.map((item, index) => {
+                        const id = getQualifierId(item);
+                        const isBye = byeTeamIds.includes(id);
+
+                        return `
+                            <article style="
+                                padding:12px;
+                                border-radius:10px;
+                                background:rgba(255,255,255,.045);
+                            ">
+                                <div style="
+                                    display:flex;
+                                    align-items:center;
+                                    justify-content:space-between;
+                                    gap:8px;
+                                ">
+                                    <strong>${index + 1}. ${escapeHTML(
+                                        getQualifierName(item)
+                                    )}</strong>
+
+                                    ${isBye ? `
+                                        <span class="features-pill">
+                                            BYE
+                                        </span>
+                                    ` : ""}
+                                </div>
+                            </article>
+                        `;
+                    }).join("")}
+                </div>
+
+                ${byeTeams.length ? `
+                    <div style="
+                        margin-top:14px;
+                        padding:12px;
+                        border-radius:10px;
+                        background:rgba(255,255,255,.035);
+                    ">
+                        <strong>
+                            <i class="fa-solid fa-forward"></i>
+                            Direct Semi-Final Qualification
+                        </strong>
+
+                        <div style="
+                            display:grid;
+                            gap:8px;
+                            margin-top:10px;
+                        ">
+                            ${byeTeams.map(item => `
+                                <div>
+                                    ${escapeHTML(getQualifierName(item))}
+                                    — Direct Bye
+                                </div>
+                            `).join("")}
+                        </div>
+                    </div>
+                ` : ""}
+            </div>
+        `;
+    }
+
+    /*
+     * Knockout ম্যাচ এখনো তৈরি না হলে
+     * Qualification-এর অবস্থা দেখাবে।
+     */
+    if (!knockoutFixtures.length) {
+        container.innerHTML = `
+            ${qualificationMarkup}
+
+            <div class="features-empty">
+                <h3>No Knockout Matches Yet</h3>
+                <p>
+                    All Group Stage matches must be completed.
+                    Qualified teams and knockout fixtures will
+                    then appear automatically.
+                </p>
+            </div>
+        `;
+        return;
+    }
+
+    /*
+     * Round অনুযায়ী ম্যাচ সাজানো।
+     */
+    const grouped = new Map();
+
+    knockoutFixtures.forEach(fixture => {
+        const roundIndex = getRoundOrder(fixture);
+
+        const stage = String(
+            fixture.roundName ??
+            fixture.stage ??
+            fixture.bracketStage ??
+            "Knockout"
+        );
+
+        const groupKey = `${roundIndex}::${stage}`;
+
+        if (!grouped.has(groupKey)) {
+            grouped.set(groupKey, {
+                order: roundIndex,
+                name: stage,
+                matches: []
+            });
+        }
+
+        grouped.get(groupKey).matches.push(fixture);
+    });
+
+    const rounds = Array.from(grouped.values())
+        .sort((a, b) => a.order - b.order);
+
+    const roundsMarkup = rounds.map(round => `
+        <div style="
+            padding:16px;
+            margin-bottom:14px;
+            border:1px solid rgba(255,255,255,.12);
+            border-radius:14px;
+            background:rgba(255,255,255,.035);
+        ">
+            <h3 style="margin:0 0 14px;">
+                <i class="fa-solid fa-trophy"></i>
+                ${escapeHTML(round.name)}
+            </h3>
+
+            <div style="display:grid;gap:12px;">
+                ${round.matches.map((fixture, index) => {
+                    const status = getFixtureStatus(fixture);
+
+                    const statusLabel = {
+                        upcoming: "UPCOMING",
+                        live: "LIVE",
+                        completed: "COMPLETED",
+                        cancelled: "CANCELLED"
+                    }[status] || "UPCOMING";
+
+                    return `
+                        <article style="
+                            padding:14px;
+                            border-radius:10px;
+                            background:rgba(255,255,255,.045);
+                        ">
+                            <div style="
+                                display:flex;
+                                justify-content:space-between;
+                                align-items:center;
+                                gap:10px;
+                                margin-bottom:12px;
+                                flex-wrap:wrap;
+                            ">
+                                <strong>
+                                    Match ${escapeHTML(
+                                        fixture.matchNumber ?? index + 1
+                                    )}
+                                </strong>
+
+                                <span>
+                                    ${escapeHTML(statusLabel)}
+                                </span>
+                            </div>
+
+                            <div style="
+                                display:flex;
+                                justify-content:space-between;
+                                align-items:center;
+                                gap:10px;
+                                flex-wrap:wrap;
+                            ">
+                                ${renderTeamIdentity(
+                                    getHomeTeamId(fixture),
+                                    getHomeTeamName(fixture),
+                                    true
+                                )}
+
+                                <strong>VS</strong>
+
+                                ${renderTeamIdentity(
+                                    getAwayTeamId(fixture),
+                                    getAwayTeamName(fixture),
+                                    true
+                                )}
+                            </div>
+                        </article>
+                    `;
+                }).join("")}
+            </div>
+        </div>
+    `).join("");
+
+    container.innerHTML = `
+        ${qualificationMarkup}
+        ${roundsMarkup}
+    `;
+}
+
+    function isProtectedFixture(fixture) {
+    const status = String(fixture.status || "").toLowerCase();
+
+    const hasScore =
+        Number(fixture.team1Score ?? fixture.homeScore ?? 0) > 0 ||
+        Number(fixture.team2Score ?? fixture.awayScore ?? 0) > 0 ||
+        Number(fixture.runs1 ?? 0) > 0 ||
+        Number(fixture.runs2 ?? 0) > 0;
+
+    return (
+        fixture.completed === true ||
+        fixture.isLive === true ||
+        ["live", "completed", "finished", "full time"].includes(status) ||
+        hasScore
+    );
+}
 
     /* =====================================================
        GENERATE MATCH PAIRINGS
     ===================================================== */
 
-    function generatePairings() {
+ function generatePairings() {
     try {
         const tournament = getSelectedTournament();
 
         if (!tournament) {
-            showNotice(
-                "প্রথমে একটি টুর্নামেন্ট নির্বাচন করো।",
-                "warning"
-            );
+            showNotice("প্রথমে একটি টুর্নামেন্ট নির্বাচন করো।", "warning");
             return;
         }
 
@@ -1349,66 +2083,163 @@ seedB: pair.seedB ?? null,
 
         if (!Array.isArray(teams) || teams.length < 2) {
             showNotice(
-                "এই টুর্নামেন্টের সঙ্গে অন্তত ২টি দল যুক্ত থাকতে হবে। Teams & Squads-এ দলের Tournament সেটিং পরীক্ষা করো।",
+                "এই টুর্নামেন্টের সঙ্গে অন্তত ২টি দল যুক্ত থাকতে হবে।",
                 "warning"
             );
             return;
         }
 
-        const format = normalizeFormat(
-            getTournamentFormat(tournament)
-        );
+        const format = normalizeFormat(getTournamentFormat(tournament));
+
+        console.log("========== MATCHCRAFT DEBUG ==========");
+        console.log("Selected Tournament:", tournament);
+        console.log("Tournament ID:", getId(tournament));
+        console.log("Tournament Format:", getTournamentFormat(tournament));
+        console.log("Normalized Format:", format);
+        console.log("Number of Groups:", tournament.numberOfGroups);
+        console.log("Selected Teams:", teams);
+        console.log("Total Teams:", teams.length);
 
         if (format === "custom") {
-            showNotice(
-                "এই টুর্নামেন্টের ফরম্যাটটি স্বয়ংক্রিয় পেয়ারিংয়ের জন্য চেনা যায়নি। Tournament Format-এর নাম পরীক্ষা করো।",
-                "warning"
-            );
+            showNotice("এই টুর্নামেন্টের ফরম্যাটটি চেনা যায়নি।", "warning");
             return;
         }
 
         let pairs = [];
 
-if (format === "knockout") {
-    let standings = [];
+        if (format === "group-knockout") {
+            pairs = makeGroupKnockoutPairs(teams, tournament);
 
-    if (
-        window.CricketStatistics &&
-        typeof window.CricketStatistics.readAll === "function" &&
-        typeof window.CricketStatistics.buildStandings === "function"
-    ) {
-        const data = window.CricketStatistics.readAll();
+        } else if (format === "knockout") {
+            let standings = [];
 
-        if (data && Array.isArray(data.teams) && Array.isArray(data.matches)) {
-            standings = window.CricketStatistics.buildStandings(data);
+            if (
+                window.CricketStatistics &&
+                typeof window.CricketStatistics.readAll === "function" &&
+                typeof window.CricketStatistics.buildStandings === "function"
+            ) {
+                const data = window.CricketStatistics.readAll();
+
+                if (
+                    data &&
+                    Array.isArray(data.teams) &&
+                    Array.isArray(data.matches)
+                ) {
+                    standings = window.CricketStatistics.buildStandings(data);
+                }
+            }
+
+            pairs = makeKnockoutPairs(teams, standings);
+
+        } else if (format === "league" || format === "group") {
+            pairs = makeRoundRobinPairs(teams);
+
+        } else {
+            showNotice("এই ফরম্যাটের পেয়ারিং তৈরি করা যাচ্ছে না।", "warning");
+            return;
         }
-    }
 
-    pairs = makeKnockoutPairs(teams, standings);
-} else {
-    pairs = makeRoundRobinPairs(teams);
-}
+        console.log("Generated Pair Count:", pairs.length);
+        console.log("Generated Group Count:", pairs.groupCount);
+        console.log("Generated Groups:", pairs.groupDefinitions);
+        console.log("Generated Pairs:", pairs);
+        console.log("====================================");
 
         if (!Array.isArray(pairs) || pairs.length === 0) {
-            showNotice(
-                "এই টুর্নামেন্টের জন্য কোনো ম্যাচ পেয়ারিং তৈরি করা যায়নি।",
-                "warning"
-            );
+            showNotice("কোনো ম্যাচ পেয়ারিং তৈরি করা যায়নি।", "warning");
             return;
         }
 
         const allFixtures = readFixtures();
         const tournamentFixtures = getTournamentFixtures(tournament);
-        const existingKeys = getExistingPairKeys(tournamentFixtures);
 
-        const newPairs = pairs.filter(pair => {
-            const key = makePairKey(
-                pair.teamA.id,
-                pair.teamB.id,
-                pair.round
+        // আগের সব টুর্নামেন্টের ম্যাচ সংরক্ষণ।
+        const retainedFixtures = allFixtures.slice();
+
+        // শুধু এই Features পেজ থেকে তৈরি Group Stage ম্যাচ শনাক্ত।
+        const isGroupGenerated = fixture =>
+            fixture.generatedFixture === true &&
+            fixture.source === "MATCHCRAFT_FEATURES" &&
+            (
+                fixture.groupStage === true ||
+                fixture.bracketStage === "group" ||
+                Boolean(fixture.groupName) ||
+                String(fixture.matchType || "")
+                    .toLowerCase()
+                    .includes("group")
             );
 
-            if (existingKeys.has(key)) return false;
+        const existingGroupFixtures = tournamentFixtures.filter(
+            isGroupGenerated
+        );
+
+        // Duplicate prevention।
+        const existingKeys = new Set();
+
+        if (format === "group-knockout") {
+            existingGroupFixtures.forEach(fixture => {
+                const a = String(
+                    fixture.teamAId ??
+                    fixture.homeTeamId ??
+                    fixture.team1Id ??
+                    ""
+                );
+
+                const b = String(
+                    fixture.teamBId ??
+                    fixture.awayTeamId ??
+                    fixture.team2Id ??
+                    ""
+                );
+
+                if (!a || !b) return;
+
+                const ids = [a, b].sort();
+
+                const stage = String(
+                    fixture.roundName ??
+                    fixture.stage ??
+                    fixture.groupName ??
+                    ""
+                ).trim().toLowerCase();
+
+                existingKeys.add(
+                    `${ids[0]}::${ids[1]}::${stage}`
+                );
+            });
+
+        } else {
+            getExistingPairKeys(tournamentFixtures).forEach(key => {
+                existingKeys.add(key);
+            });
+        }
+
+        const newPairs = pairs.filter(pair => {
+            let key;
+
+            if (format === "group-knockout") {
+                const ids = [
+                    String(pair.teamA.id),
+                    String(pair.teamB.id)
+                ].sort();
+
+                const stage = String(
+                    pair.stage || ""
+                ).trim().toLowerCase();
+
+                key = `${ids[0]}::${ids[1]}::${stage}`;
+
+            } else {
+                key = makePairKey(
+                    pair.teamA.id,
+                    pair.teamB.id,
+                    pair.round
+                );
+            }
+
+            if (existingKeys.has(key)) {
+                return false;
+            }
 
             existingKeys.add(key);
             return true;
@@ -1419,19 +2250,40 @@ if (format === "knockout") {
             renderSchedule();
 
             showNotice(
-                "এই পেয়ারিংয়ের ম্যাচগুলো আগে থেকেই শিডিউলে আছে। নতুন ডুপ্লিকেট তৈরি করা হয়নি।",
+                "নতুন কোনো ম্যাচ তৈরি করার প্রয়োজন নেই।",
                 "info"
             );
             return;
         }
+
+        console.log("NEW PAIRS:", newPairs);
+        console.log("EXISTING TOURNAMENT FIXTURES:", tournamentFixtures);
+        console.log("RETAINED FIXTURES:", retainedFixtures);
+        console.log("GENERATED FIXTURES WILL BE CREATED:", newPairs.length);
 
         const generatedFixtures = newPairs.map((pair, index) =>
             createFixture(
                 pair,
                 tournament,
                 index + 1,
-                tournamentFixtures
+                retainedFixtures
             )
+        );
+
+        console.log("NEW FIXTURE DETAILS:", generatedFixtures);
+
+        console.table(
+            generatedFixtures.map(fixture => ({
+                tournamentId: fixture.tournamentId,
+                tournamentName: fixture.tournamentName,
+                groupName: fixture.groupName,
+                stage: fixture.stage,
+                teamA: fixture.teamAName,
+                teamB: fixture.teamBName,
+                teamAId: fixture.teamAId,
+                teamBId: fixture.teamBId,
+                status: fixture.status
+            }))
         );
 
         if (!generatedFixtures.length) {
@@ -1440,15 +2292,12 @@ if (format === "knockout") {
         }
 
         const updatedFixtures = [
-            ...allFixtures,
+            ...retainedFixtures,
             ...generatedFixtures
         ];
 
         if (!writeFixtures(updatedFixtures)) {
-            showNotice(
-                "ম্যাচ LocalStorage-এ সংরক্ষণ করা যায়নি।",
-                "error"
-            );
+            showNotice("ম্যাচ LocalStorage-এ সংরক্ষণ করা যায়নি।", "error");
             return;
         }
 
@@ -1467,18 +2316,15 @@ if (format === "knockout") {
         renderSchedule();
 
         showNotice(
-            `${generatedFixtures.length}টি নতুন ম্যাচ তৈরি ও সংরক্ষণ করা হয়েছে।`,
+            `${generatedFixtures.length}টি নতুন ম্যাচ তৈরি ও সংরক্ষণ হয়েছে।`,
             "success"
         );
 
     } catch (error) {
-        console.error(
-            "[MATCHCRAFT] Generate Pairings Error:",
-            error
-        );
+        console.error("[MATCHCRAFT] Generate Pairings Error:", error);
 
         showNotice(
-            "ম্যাচ তৈরি করতে সমস্যা হয়েছে। JavaScript Console-এ ত্রুটিটি পরীক্ষা করতে হবে।",
+            "ম্যাচ তৈরির সমস্যা: " + (error.message || error),
             "error"
         );
     }
@@ -1609,4 +2455,40 @@ if (format === "knockout") {
             }
         }
     };
+
+    /* =====================================================
+       AUTOMATIC SCHEDULE REFRESH
+       Match Center / Statistics থেকে ম্যাচ আপডেট হলে
+       Features page-ও রিফ্রেশ হবে।
+    ===================================================== */
+
+    function refreshFeatureViews() {
+        if (!initialized || !getPage()) return;
+
+        refreshTournamentOptions();
+
+        if (selectedTournamentId) {
+            renderSelectedTournament();
+            renderSchedule();
+        }
+    }
+
+    window.addEventListener("matchcraft:matches-updated", () => {
+        refreshFeatureViews();
+    });
+
+    window.addEventListener("matchcraft:datachange", () => {
+        refreshFeatureViews();
+    });
+
+    window.addEventListener("storage", event => {
+        if (
+            event.key === STORAGE.fixtures ||
+            event.key === STORAGE.tournaments ||
+            event.key === STORAGE.teams
+        ) {
+            refreshFeatureViews();
+        }
+    });
+
 })();

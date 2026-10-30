@@ -254,29 +254,41 @@ function getMatchTeamIds(match) {
 }
 
 function getMatchStatus(match) {
-    const raw = textValue(
+    const statuses = [
         match?.status,
         match?.phase,
         match?.matchStatus,
         match?.state,
-        match?.liveData?.phase
-    ).toLowerCase();
+        match?.liveData?.phase,
+        match?.liveData?.status
+    ]
+    .filter(value => value !== undefined && value !== null)
+    .map(value => String(value).toLowerCase().trim());
 
     if (
         match?.completed === true ||
-        raw.includes("complete") ||
-        raw.includes("finished") ||
-        raw.includes("full time") ||
-        raw === "result" ||
-        raw === "won"
-    ) return "completed";
+        match?.liveData?.completed === true ||
+        statuses.some(status =>
+            status.includes("complete") ||
+            status.includes("finished") ||
+            status.includes("full time") ||
+            status === "result" ||
+            status === "won"
+        )
+    ) {
+        return "completed";
+    }
 
     if (
         match?.isLive === true ||
-        raw.includes("live") ||
-        raw.includes("progress") ||
-        raw === "started"
-    ) return "live";
+        statuses.some(status =>
+            status.includes("live") ||
+            status.includes("progress") ||
+            status === "started"
+        )
+    ) {
+        return "live";
+    }
 
     return "scheduled";
 }
@@ -1004,6 +1016,260 @@ function getMatchCandidates(match, batting, bowling) {
     return candidates.sort((a, b) => b.points - a.points);
 }
 
+
+/* =========================================================
+   TOURNAMENT HIGHLIGHTS
+   Champion • Final Man of the Match • Runner-up
+========================================================= */
+
+function getHighlightTeam(teamId) {
+    if (!teamId) return null;
+
+    return state.teams.find(team =>
+        String(getId(team) || team.teamId || team.id || "") === String(teamId)
+    ) || null;
+}
+
+function getHighlightPlayer(playerId) {
+    if (!playerId) return null;
+
+    return state.players.find(player =>
+        String(getId(player) || player.playerId || player.id || "") === String(playerId)
+    ) || null;
+}
+
+function getHighlightImage(record, type) {
+    if (!record || typeof record !== "object") return "";
+
+    const fields = type === "team"
+        ? ["logo", "logoUrl", "teamLogo", "teamLogoUrl", "crest", "image", "imageUrl", "photo"]
+        : ["photo", "photoUrl", "image", "imageUrl", "avatar", "profileImage", "profilePhoto", "picture"];
+
+    for (const field of fields) {
+        const value = record[field];
+
+        if (typeof value === "string" && value.trim()) {
+            return value.trim();
+        }
+
+        if (value && typeof value === "object") {
+            const nested = value.url || value.src || value.data;
+            if (typeof nested === "string" && nested.trim()) {
+                return nested.trim();
+            }
+        }
+    }
+
+    return "";
+}
+
+function getHighlightTeamIds(match) {
+    const ids = getMatchTeamIds(match);
+
+    if (Array.isArray(ids)) {
+        return [ids[0] || "", ids[1] || ""];
+    }
+
+    if (ids && typeof ids === "object") {
+        return [
+            ids.team1Id || ids.teamAId || ids.homeTeamId || ids.team1 || "",
+            ids.team2Id || ids.teamBId || ids.awayTeamId || ids.team2 || ""
+        ];
+    }
+
+    return [
+        match?.team1Id || match?.teamAId || match?.homeTeamId ||
+            match?.team1?.id || match?.teamA?.id || match?.liveData?.team1Id || "",
+        match?.team2Id || match?.teamBId || match?.awayTeamId ||
+            match?.team2?.id || match?.teamB?.id || match?.liveData?.team2Id || ""
+    ];
+}
+
+function renderHighlightTeam(teamId, fallbackName, type) {
+    const team = getHighlightTeam(teamId);
+    const name = team ? getTeamName(teamId) : (fallbackName || "Not available");
+    const image = getHighlightImage(team, "team");
+
+    return `
+        <div class="award-highlight-person">
+            <div class="award-highlight-avatar ${type === "champion" ? "is-champion" : "is-runner"}">
+                ${image
+                    ? `<img src="${escapeHTML(image)}" alt="${escapeHTML(name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='grid';">
+                       <span class="award-highlight-fallback" style="display:none;">${type === "champion" ? "🏆" : "🥈"}</span>`
+                    : `<span class="award-highlight-fallback">${type === "champion" ? "🏆" : "🥈"}</span>`
+                }
+            </div>
+            <strong>${escapeHTML(name)}</strong>
+        </div>
+    `;
+}
+
+function renderTournamentHighlights(matches, batting, bowling) {
+    const completed = matches.filter(isCompleted);
+
+    const finals = completed.filter(match =>
+        /final/i.test(textValue(
+            match.stage,
+            match.round,
+            match.matchName,
+            match.name,
+            match.title
+        ))
+    );
+
+    const finalMatch = finals[finals.length - 1] || null;
+
+    let championId = "";
+    let runnerUpId = "";
+    let championName = "";
+    let runnerUpName = "";
+
+    let manOfTheMatch = null;
+    let manOfTheMatchRecord = null;
+
+    if (finalMatch) {
+        championId = getWinnerId(finalMatch) || "";
+
+        const [team1Id, team2Id] = getHighlightTeamIds(finalMatch);
+
+        if (championId) {
+            runnerUpId = String(championId) === String(team1Id)
+                ? team2Id
+                : String(championId) === String(team2Id)
+                    ? team1Id
+                    : "";
+        }
+
+        championName = championId
+            ? getTeamName(championId)
+            : "";
+
+        runnerUpName = runnerUpId
+            ? getTeamName(runnerUpId)
+            : "";
+
+        const awards = readAwards();
+        const finalId = String(getId(finalMatch) || "");
+        const savedFinal = awards.finalAward || {};
+
+        const candidates = getMatchCandidates(finalMatch, batting, bowling);
+        const automatic = candidates[0];
+
+        const selectedId =
+            savedFinal.matchId === finalId && savedFinal.playerId
+                ? savedFinal.playerId
+                : automatic?.id || "";
+
+        manOfTheMatch =
+            candidates.find(player => String(player.id) === String(selectedId)) ||
+            automatic ||
+            null;
+
+        if (manOfTheMatch) {
+            manOfTheMatchRecord = getHighlightPlayer(manOfTheMatch.id);
+        }
+    }
+
+    const playerImage = getHighlightImage(manOfTheMatchRecord, "player");
+
+    return `
+        <section class="award-section award-highlights-section">
+            <div class="award-highlights-heading">
+                <div>
+                    <span class="award-highlights-eyebrow">TOURNAMENT CELEBRATION</span>
+                    <h2><i class="fa-solid fa-crown"></i> Tournament Highlights</h2>
+                    <p>Celebrating the champions and outstanding performer.</p>
+                </div>
+                <span class="award-highlights-tag">TOP HONORS</span>
+            </div>
+
+            <div class="award-highlights-grid">
+
+                <!-- CHAMPION -->
+                <article class="award-highlight-card award-highlight-champion">
+                    <div class="award-highlight-icon">
+                        <i class="fa-solid fa-trophy"></i>
+                        <span class="award-highlight-sparkle">✦</span>
+                    </div>
+
+                    <span class="award-highlight-label">TOURNAMENT CHAMPION</span>
+
+                    ${finalMatch
+                        ? renderHighlightTeam(championId, championName, "champion")
+                        : `
+                            <div class="award-highlight-empty">
+                                <i class="fa-solid fa-trophy"></i>
+                                <strong>Champion</strong>
+                                <span>Final result not available</span>
+                            </div>
+                        `
+                    }
+
+                    <span class="award-highlight-bottom">WINNER</span>
+                </article>
+
+                <!-- MAN OF THE MATCH -->
+                <article class="award-highlight-card award-highlight-mom">
+                    <div class="award-highlight-icon">
+                        <i class="fa-solid fa-medal"></i>
+                        <span class="award-highlight-wave">👋</span>
+                    </div>
+
+                    <span class="award-highlight-label">FINAL MAN OF THE MATCH</span>
+
+                    ${manOfTheMatch
+                        ? `
+                            <div class="award-highlight-person">
+                                <div class="award-highlight-avatar award-highlight-player-avatar">
+                                    ${playerImage
+                                        ? `<img src="${escapeHTML(playerImage)}" alt="${escapeHTML(manOfTheMatch.name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='grid';">
+                                           <span class="award-highlight-fallback" style="display:none;"><i class="fa-solid fa-user"></i></span>`
+                                        : `<span class="award-highlight-fallback"><i class="fa-solid fa-user"></i></span>`
+                                    }
+                                </div>
+                                <strong>${escapeHTML(manOfTheMatch.name || "Selected Player")}</strong>
+                                <small>${escapeHTML(getTeamName(manOfTheMatch.teamId))}</small>
+                            </div>
+                        `
+                        : `
+                            <div class="award-highlight-empty">
+                                <i class="fa-solid fa-user-tie"></i>
+                                <strong>Man of the Match</strong>
+                                <span>Not selected yet</span>
+                            </div>
+                        `
+                    }
+
+                    <span class="award-highlight-bottom">BEST PERFORMER</span>
+                </article>
+
+                <!-- RUNNER-UP -->
+                <article class="award-highlight-card award-highlight-runner">
+                    <div class="award-highlight-icon">
+                        <i class="fa-solid fa-award"></i>
+                    </div>
+
+                    <span class="award-highlight-label">TOURNAMENT RUNNER-UP</span>
+
+                    ${finalMatch
+                        ? renderHighlightTeam(runnerUpId, runnerUpName, "runner")
+                        : `
+                            <div class="award-highlight-empty">
+                                <i class="fa-solid fa-award"></i>
+                                <strong>Runner-up</strong>
+                                <span>Final result not available</span>
+                            </div>
+                        `
+                    }
+
+                    <span class="award-highlight-bottom">SECOND PLACE</span>
+                </article>
+
+            </div>
+        </section>
+    `;
+}
+
 function renderMOMSection(matches, batting, bowling) {
     const awards = readAwards();
     const completed = matches.filter(isCompleted);
@@ -1617,8 +1883,9 @@ function render() {
 
             <p class="award-subtitle">Viewing: <strong>${escapeHTML(tournamentName)}</strong></p>
 
-            ${renderOverview(matches, batting, bowling)}
-            ${renderTopPerformers(batting, bowling)}
+           ${renderOverview(matches, batting, bowling)}
+${renderTournamentHighlights(matches, batting, bowling)}
+${renderTopPerformers(batting, bowling)}
             ${renderBattingBowling(batting, bowling)}
 
             <section class="award-section">
